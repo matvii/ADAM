@@ -1,0 +1,61 @@
+.TH simpos(1) WCSTools "14 May 2015"
+.SH Name
+simpos \- Find position of a named object in the sky
+.SH Synopsis
+simpos [options] [object name]
+.SH Description
+.I simpos
+is a utility for finding the coordinates of any named object in the sky
+using the SIMBAD name resolver at either the CDS in Strasbourg or the
+ADS in Cambridge, MA.  It can search SIMBAD, Vizier, and/or NED (NASA
+Extragalactic Database) in any order.
+.SH Options
+.TP
+.B object name
+Name of object for which to find coordinates.
+.TP
+.B \@listfile
+File with one object name per line.
+.TP
+.B \-b <RA> <Dec>
+Output B1950 (FK4) coordinates instead of default J2000 (FK5)
+.TP
+.B \-c
+Use the CDS server in Strasbourg, France rather than the default server
+at the Astrophysical Data System in Cambridge, Massachusetts, USA.
+.TP
+.B \-d
+ Output RA and Dec in degrees instead of hh:mm:ss dd:mm:ss
+.TP
+.B \-e
+Output ecliptic coordinates
+.TP
+.B \-g
+Output galactic coordinates
+.TP
+.B \-i
+Print object ID(s) returned
+.TP
+.B \-n
+Find coordinates using NED
+.TP
+.B \-s 
+Find coordinates using SIMBAD
+.TP
+.B \-t
+Print output as tab-separated table
+.TP
+.B \-v
+Verbose listing of results of search
+.TP
+.B \-z
+Find coordinates in the Vizier catalogs
+
+.SH See Also
+scat()
+
+.SH Web Page
+http://tdc-www.harvard.edu/software/wcstools/scat/
+
+.SH Author
+Doug Mink, SAO (dmink@cfa.harvard.edu)

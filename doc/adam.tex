@@ -1,0 +1,41 @@
+\documentclass{article}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{natbib}
+\usepackage[american]{babel}
+\usepackage{hyperref}
+\begin{document}
+\section{Introduction}
+All Data Asteroid Modelling (ADAM) is a software package for shape reconstruction of asteroids from observations. Currently supported data modes are lightcurves, adaptive optics images, occultations and range-Doppler radar images. Codes for thermal modelling, albedo fitting, and calibrated lightcurves are also available but not yet integrated into the main program.
+Asteroids are described by parametric models (octantoids and $\sqrt{3}$-subdivision surfaces) which facilitate representation of general, non star-shaped, closed surfaces. 
+For theoretical background and description of various algorithms used, see \cite{V16} and references therein.
+\section{Shape representation}
+ADAM uses parametric shape representations. Currently implemented are octantoids and $\sqrt{3}$-subdivision surfaces. Octantoid parameterization expands each vertex coordinate using the spherical harmonics series. This is a global parameterization in the sense that a change in one parameter affects all vertices. In contrast, subdivision surfaces are more localized, since each parameter only affects a few vertices.  
+Internally ADAM uses polyhedrons with triangular facets. Partial derivatives are calculated with respect to vertex coordinates, and only in last step derivatives wrt parameters are calculated using the chain rule. This approach makes it easy to add additional shape parameterizations into ADAM. 
+
+\section{Data modes}
+\subsection{Lightcurves}
+As an asteroid rotates, observed brightness varies. A lightcurve is obtained by observing brightness variations of an asteroid over a time period. As brightness depends on the asteroid's shape and surface albedo, we can find a best-fitting surface shape that minimizes  difference between observed  and measured brightness. 
+Only convex features can be reliably reconstructed. While it is possible that in some rare cases (large phase angles are required) non-convex shape giving a better fit than convex one, non-convexities are not unique. 
+\subsection{Occultations}
+Occultations are fitted using the procedure described in \cite{Du11}. For optimal results, initial shape should intersect all the observed chords, and should not intersect any no-intersection chords. In some cases resulting shape is highly dependent on initially chosen offset. 
+\subsection{Adaptive optics and other disk-resolved images}
+Reconstruction from adaptive optics images requires fitting the projected polyhedron to a 2D image  degraded by atmospheric noise. ADAM solves this by minimizing difference between 2D Fourier transform of plane-projected polyhedron, multiplied with Fourier transformed, and Fourier transform of data image.  
+
+Image of $n\times n$ pixels with pixel size $dp$ is sampled at $n^2/2-1$ frequency points (dc term is not fitted) with the maximum frequency $1/2dp-1/(ndp)$ and minimum frequency $-1/2dp$, step size $1/(ndp)$.
+Note that the pixel size determines the maximum usable frequency.
+
+\section{Notes}
+
+\begin{thebibliography}{9}
+\bibitem{V16}
+Matti Viikinkoski
+\ephm{Shape reconstruction from generalized projections}
+Tampere University of Technology, 2016
+\url{http://urn.fi/URN:ISBN:978-952-15-3673-1}
+\bibitem{Du11}
+Durech J. et al.
+\ephm{Combining asteroids derived by lightcurve inversion with asteroid occultation silhouettes}
+Icarus, vol 2014, 2011
+
