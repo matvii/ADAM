@@ -512,6 +512,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         }
         if(OUT_SHAPE_PARAM_FILE!=NULL)
             write_matrix_file(OUT_SHAPE_PARAM_FILE,a,1,alength);
+        return;
     }
     
 //     zero_array(dLCdv,nLCtotal*(3*nvert+3));
