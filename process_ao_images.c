@@ -102,7 +102,7 @@ AOstruct * process_ao_images(char **filenames,char **psfnames,int nao,int *x0,in
                     AO->freqy[j][FreqCount]=freqy[k];
                     AO->datar[j][FreqCount]=datar[k];
                     AO->datai[j][FreqCount]=datai[k];
-                     if(psfnames[j]!=NULL);
+                     if(psfnames[j]!=NULL)
                      {
                      AO->psfr[j][FreqCount]=psfr[k];
                      AO->psfi[j][FreqCount]=psfi[k];
