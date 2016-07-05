@@ -249,6 +249,8 @@ int parse_ini(char *filename)
     pixscalex=calloc(nAO,sizeof(double));
     pixscaley=calloc(nAO,sizeof(double));
     up=calloc(3*nAO,sizeof(double));
+    for(int k=0;k<nAO;k++)
+        AOWeight[k]=1.0;
     s=iniparser_getstring(ini,"Optimization:AOOffsetFile",NULL);
     if(s!=NULL)
     {
