@@ -35,11 +35,11 @@ Bug reports, data, feature suggestions and comments are welcome.
 Matti Viikinkoski (matti.viikinkoski@gmail.com)
 
 ##Updates
-#10.7.2016
+####10.7.2016
 - Added support for occultation chord offsets
 - Added support for optimizing occultation chord offsets
 
-##TODO
+####TODO
 - Albedo variation
 - Calibrated lightcurves
 - Hapke scattering law
