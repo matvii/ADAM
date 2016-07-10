@@ -1,13 +1,15 @@
 #include"utils.h"
 #include"matrix_ops.h"
 
-void calculate_OCs(int *tlist,double *vlist,int nfac,int nvert,double *angles,OCstruct* OC,double *offset,double *W,double *D,int dm,int dn,double* OCdist,double* dOdv,double *dOdoff)
+void calculate_OCs(int *tlist,double *vlist,int nfac,int nvert,double *angles,OCstruct* OC,double *offset,double *W,double *D,int dm,int dn,double *Chordoffset,double* OCdist,double* dOdv,double *dOdoff,double *dChordoff)
 {
     /*Construct derivative matrix wrt shape parameters corresponding to chord interserctions*/ 
     /*offset is 2*noc vector containing offsets
+     * Chordoffset is ntotal vector containing offset of each chord in seconds (optional)
      * D optional derivative matrix by which the original derivative matrix is multiplied
      * dOdv is 4*ntotal x (3*nvert+3) (or (3*dn+3) if D!=NULL) matrix containing derivatives
      * dOdoff 4*ntotal x 2*noc matrix for derivatives wrt offset terms
+     * dChordoff 4*notalxntotal matrix for derivatives wrt chord offsets
      */
     int noc=OC->noc;
     int *nobs=OC->nobs;
@@ -34,7 +36,14 @@ void calculate_OCs(int *tlist,double *vlist,int nfac,int nvert,double *angles,OC
         double *dangles=calloc(4*nobs[j]*3,sizeof(double));
         double *dtox=calloc(4*nobs[j],sizeof(double));
         double *dtoy=calloc(4*nobs[j],sizeof(double));
-        Fit_Occ(tlist,vlist,nfac,nvert,angles,OC->up+3*j,OC->E+3*j,OC->V+3*j,OC->TIME[j],offset+2*j,OC->data[j],OC->type[j],nobs[j],W,OCdist+4*cumcount[j],dx,dy,dz,dangles,dtox,dtoy);
+        double *COffset;
+        double *dCOdoff=calloc(4*nobs[j]*nobs[j],sizeof(double));
+        if(Chordoffset!=NULL)
+            COffset=Chordoffset+cumcount[j];
+        else
+            COffset=NULL;
+        
+        Fit_Occ(tlist,vlist,nfac,nvert,angles,OC->up+3*j,OC->E+3*j,OC->V+3*j,OC->TIME[j],offset+2*j,OC->data[j],OC->type[j],nobs[j],W,COffset,OCdist+4*cumcount[j],dx,dy,dz,dangles,dtox,dtoy,dCOdoff);
        
         if(D!=NULL)
         {
@@ -55,6 +64,8 @@ void calculate_OCs(int *tlist,double *vlist,int nfac,int nvert,double *angles,OC
         
             set_submatrix(dOdoff,4*ntotal,2*noc,dtox,4*nobs[j],1,4*cumcount[j],2*j);
             set_submatrix(dOdoff,4*ntotal,2*noc,dtoy,4*nobs[j],1,4*cumcount[j],2*j+1);
+            if(dChordoff!=NULL)
+                set_submatrix(dChordoff,4*ntotal,ntotal,dCOdoff,4*nobs[j],nobs[j],4*cumcount[j],cumcount[j]);
             
             free(dx);
             free(dy);
@@ -76,7 +87,8 @@ void calculate_OCs(int *tlist,double *vlist,int nfac,int nvert,double *angles,OC
             
             set_submatrix(dOdoff,4*ntotal,2*noc,dtox,4*nobs[j],1,4*cumcount[j],2*j);
             set_submatrix(dOdoff,4*ntotal,2*noc,dtoy,4*nobs[j],1,4*cumcount[j],2*j+1);
-            
+            if(dChordoff!=NULL)
+                set_submatrix(dChordoff,4*ntotal,ntotal,dCOdoff,4*nobs[j],nobs[j],4*cumcount[j],cumcount[j]);
              
             free(dx);
             free(dy);
@@ -85,7 +97,9 @@ void calculate_OCs(int *tlist,double *vlist,int nfac,int nvert,double *angles,OC
             free(dtox);
             free(dtoy); 
         }
+        free(dCOdoff);
     }
+    free(cumcount);
 }
 /*
 void main()

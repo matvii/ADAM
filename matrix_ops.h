@@ -15,4 +15,6 @@ void matrix_minus2(double *A,int m,int n,double *B,double **C);
 void matrix_prod(double  *A,int m,int k,double  *B,int n,double  *C);
 void real_matrix_multiplyT_ele(double *A,int *B,int k,int m,double *C);
 void real_matrix_multiplyT(double *A,double *B,int m,int k,int n,double *C);
+void matrix_prod_ATB(double *A,int m,int k,double *B,int n,double *C);
+void matrix_prod_ATBA(double *A,int m,int k,double *B,double *D);
 #endif

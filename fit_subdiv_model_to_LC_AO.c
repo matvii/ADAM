@@ -58,17 +58,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         AOoffset=calloc(2*(AO->nao),sizeof(double));
         if(INI_INPUT_AO_OFFSET!=NULL)
         {
-            FILE *fid;
-            fid=fopen(INI_INPUT_AO_OFFSET,"r");
-            if(fid==NULL)
-                printf("Cannot read initial AO offset file, defaulting to zeros\n");
-            else
-            {
-                char buffer[4048];
-                fgets(buffer,4048,fid);
-                for(int k=0;k<2*nAO;k++)
-                    sscanf(buffer,"%lf",AOoffset+k);
-            }
+            read_vector_file(INI_INPUT_AO_OFFSET,AOoffset,2*(AO->nao));
         }
         AOoffset2=calloc(2*(AO->nao),sizeof(double));
         AOout=calloc(nAOtotal,sizeof(double));
@@ -86,13 +76,19 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             nAOscale=nAO;
         }
     }
-    //print_matrix(AO->up,AO->nao,3);
+   // print_matrix(AO->up,AO->nao,3);
     //Occultation data
     int nOCtotal=0;
     int nOCcols=0;
     int nOC=0;
     int nOCoffsets=0;
+    int nChordoffsets=0;
+    int nvectorreg=0;
     double *OCoffset,*OCoffset2,*OCout,*OCdv,OCfit=0,*OCdoff;
+    double *Chordoffset,*Chordoffset2;
+    double *dChordoffset; //Derivative matrix for chord offsets
+    double vectorreg; //regularization for free chord offsets
+    double *dvectorreg; //derivative matrix for free chord offsets, 1xnChordoffsets 
     if(INI_HAVE_OC)
     {
         nOCtotal=4*(OC->ntotal);
@@ -106,6 +102,20 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         OCdv=calloc(nOCtotal*nOCcols,sizeof(double));
         OCout=calloc(nOCtotal,sizeof(double));
         OCdoff=calloc(nOCtotal*nOCoffsets,sizeof(double));
+        Chordoffset=calloc(OC->ntotal,sizeof(double));
+        Chordoffset2=calloc(OC->ntotal,sizeof(double));
+        if(INI_CHORD_OFFSET!=NULL)
+        {
+            memcpy(Chordoffset,INI_CHORD_OFFSET,sizeof(double)*OC->ntotal);
+            memcpy(Chordoffset2,INI_CHORD_OFFSET,sizeof(double)*OC->ntotal);
+        }
+        if(INI_FREE_CHORD_NMR>0)
+        {
+            nChordoffsets=OC->ntotal;
+           nvectorreg=1;
+           dChordoffset=calloc(nOCtotal*nChordoffsets,sizeof(double));
+           dvectorreg=calloc(nChordoffsets,sizeof(double));
+        }
     }
     int nRDtotal=0;
     int nRDcols=0;
@@ -173,23 +183,61 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     double *S,*S2;
     double *J,*JTJ,*JTJpd;
     
-    int tp=0; 
+   
     int Slength;
     int nLCtotal=LC->ntotal;
-    tp=nLCtotal+nAOtotal+nOCtotal+1+1+nfacn+nRDtotal; //Number of rows in J
-    Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+nfacn; //LC points+AO points+OC points+RD points+convex reg+dihedral reg+angle reg
-    int nJcols=3*nvert+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nRDoffsets+nRDscale+nRDexp; //shape params+offset params and scale
+   
+    Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+nfacn+nvectorreg; //LC points+AO points+OC points+RD points+convex reg+dihedral reg+angle reg+[vector reg for free chords]
+    int nJcols=3*nvert+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp; //shape params+offset params and scale
     int OCoffsetcolpos=3*nvert+3+ncalib+nAOoffsets+nAOscale;
+    int Chordoffsetcolpos=3*nvert+3+ncalib+nAOoffsets+nAOscale+nOCoffsets;
     int OCrowpos=nLCtotal+nAOtotal;
-    int RDoffsetcolpos=3*nvert+3+ncalib+nAOoffsets+nAOscale+nOCoffsets;
-    int RDscalecolpos=3*nvert+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nRDoffsets;
+    int RDoffsetcolpos=3*nvert+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets;
+    int RDscalecolpos=3*nvert+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets;
     int RDrowpos=nLCtotal+nAOtotal+nOCtotal;
+    
     int regpos=nLCtotal+nAOtotal+nOCtotal+nRDtotal;
     S=calloc(Slength,sizeof(double)); 
     J=calloc(Slength*(nJcols),sizeof(double));
     
     JTJ=calloc((nJcols)*(nJcols),sizeof(double));
     JTJpd=calloc((nJcols)*(nJcols),sizeof(double));
+    //Check if some parameters are fixed:
+    double *Mask_Matrix;
+    int *Mask;
+    int nMask=0;
+    double *MJTJ;
+    double *MJTJpd;
+    double *Mrhs;
+    double *MX;
+    if(INI_MASK_SET==1)
+    {
+        Mask=calloc(nJcols,sizeof(int));
+        if(INI_FIX_SHAPE==1)
+            for(int k=0;k<3*nvert;k++)
+                Mask[k]=1;
+        if(INI_FIX_ANGLES==1)
+            for(int k=3*nvert;k<3*nvert+3;k++)
+                Mask[k]=1;
+        if(INI_FREE_CHORD_NMR>0)
+        {
+            for(int k=0;k<nChordoffsets;k++)
+                Mask[Chordoffsetcolpos+k]=1;
+            for(int k=0;k<INI_FREE_CHORD_NMR;k++)
+                Mask[Chordoffsetcolpos+INI_FREE_CHORD_LIST[k]-1]=0;
+        }
+       
+        
+        mask_matrix(nJcols,Mask,&Mask_Matrix,&nMask);
+        MJTJ=calloc(nMask*nMask,sizeof(double));
+        MJTJpd=calloc(nMask*nMask,sizeof(double));
+        Mrhs=calloc(nMask,sizeof(double));
+        MX=calloc(nMask,sizeof(double));
+        
+    }
+                
+        
+        
     double *LCout,*dLCdv,*rhs,*X;
     double LCfit;
     double RDfit=0;
@@ -250,6 +298,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
 //                 zero_array(AO->datar[1],AO->nobs[1]);
 //                 zero_array(AO->datai[1],AO->nobs[1]);
                 ///////////DEBUG////////////////////////////////////////
+              
                 Calculate_AOs(tlistn,vlistn,nfacn,nvertn,angles,AO,AOoffset,D,nvertn,nvert,INI_AO_WEIGHT,AOscale,AOout,AOdv,AOds,1);
                 /////////////DEBUG//////////////////
 //                   write_matrix_file("/tmp/AOout.txt",AOout,1,nAOtotal);
@@ -269,11 +318,26 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             }
             if(INI_HAVE_OC)
             {
-                calculate_OCs(tlistn,vlistn,nfacn,nvertn,angles,OC,OCoffset,INI_OC_WEIGHT,D,nvertn,nvert,OCout,OCdv,OCdoff);
+                if(INI_FREE_CHORD_NMR>0)
+                {
+                    calculate_OCs(tlistn,vlistn,nfacn,nvertn,angles,OC,OCoffset,INI_OC_WEIGHT,D,nvertn,nvert,Chordoffset,OCout,OCdv,OCdoff,dChordoffset);
+                    vector_regularization(Chordoffset,nChordoffsets,&vectorreg,dvectorreg);
+                    mult_with_cons(dChordoffset,nOCtotal,nChordoffsets,-ocW);
+                    mult_with_cons(dvectorreg,1,nChordoffsets,-INI_OCW);
+                    vectorreg*=INI_OCW;
+                    S[Slength-1]=vectorreg; //NOTE ABSOLUTE ADDRESS HERE. FIX!
+                    set_submatrix(J,Slength,nJcols,dChordoffset,nOCtotal,nChordoffsets,OCrowpos,Chordoffsetcolpos); //Chord offsets
+                    set_submatrix(J,Slength,nJcols,dvectorreg,1,nChordoffsets,Slength-1,Chordoffsetcolpos);
+                }
+                    
+                else
+                    calculate_OCs(tlistn,vlistn,nfacn,nvertn,angles,OC,OCoffset,INI_OC_WEIGHT,D,nvertn,nvert,Chordoffset,OCout,OCdv,OCdoff,NULL);
                  /////////////DEBUG////////////////////////////////
-//                 write_matrix_file("/tmp/OCout.txt",OCout,1,nOCtotal);
-//                 write_matrix_file("/tmp/OCdv.txt",OCdv,nOCtotal,nOCcols);
-//                 write_matrix_file("/tmp/OCdoff.txt",OCdoff,nOCtotal,nOCoffsets);
+//                  write_matrix_file("/tmp/OCout.txt",OCout,1,nOCtotal);
+//                  write_matrix_file("/tmp/OCdv.txt",OCdv,nOCtotal,nOCcols);
+//                  write_matrix_file("/tmp/OCdoff.txt",OCdoff,nOCtotal,nOCoffsets);
+//                 write_matrix_file("/tmp/dChordoffset.txt",dChordoffset,nOCtotal,nChordoffsets);
+//                 exit(1);
                 /////////////DEBUG////////////////////////////////
                 mult_with_cons(OCout,1,nOCtotal,ocW);
                 mult_with_cons(OCdv,nOCtotal,nOCcols,-ocW); //Note the minus here.
@@ -379,11 +443,24 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             /////////////DEBUG////////////////////////////////     
             matrix_transprod(J,Slength,nJcols,JTJ);
             matrix_vectorprod(J,Slength,nJcols,S,rhs,1); //rhs=J^T*S;
+            if(INI_MASK_SET==1)
+            {
+                matrix_prod_ATBA(Mask_Matrix,nJcols,nMask,JTJ,MJTJ);
+                matrix_prod_ATB(Mask_Matrix,nJcols,nMask,rhs,1,Mrhs);
+            }
         }
+        if(INI_MASK_SET==1)
+        {
+            matrix_adddiag(MJTJ,MJTJpd,nMask,lambda);
+            solve_matrix_eq(MJTJpd,nMask,Mrhs,MX);
+            matrix_prod(Mask_Matrix,nJcols,nMask,MX,1,X);
+        }
+        else
+        {
         matrix_adddiag(JTJ,JTJpd,nJcols,lambda); //JTJpd=JTJ+lambda*diag(JTJ)
         
         solve_matrix_eq(JTJpd,nJcols,rhs,X); //Solve the LM 
-        
+        }
         
         add_vector_to_vlist(vlist,X,vlist2,nvert);
         if(INI_HAVE_AO)
@@ -393,11 +470,17 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 matrix_plus2(AOscale,1,nAO,&X[3*nvert+3+nAOoffsets],AOscale2);
         }
         if(INI_HAVE_OC)
+        {
             matrix_plus2(OCoffset,1,nOCoffsets,&X[OCoffsetcolpos],OCoffset2);
+            if(INI_FREE_CHORD_NMR>0)
+                matrix_plus2(Chordoffset,1,nChordoffsets,&X[Chordoffsetcolpos],Chordoffset2);
+            
+        }
         
         angles2[0]=angles[0]+X[3*nvert];
         angles2[1]=angles[1]+X[3*nvert+1];
         angles2[2]=angles[2]+X[3*nvert+2];
+        angles2[3]=angles[3];
         if(USE_CALIB==1)
         {
             params2[0]=params[0]+X[nJcols-3];
@@ -426,9 +509,14 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         }
         if(INI_HAVE_OC)
         {
-            calculate_OCs(tlistn,vlistn,nfacn,nvertn,angles2,OC,OCoffset2,INI_OC_WEIGHT,D,nvertn,nvert,OCout,OCdv,OCdoff);
+            calculate_OCs(tlistn,vlistn,nfacn,nvertn,angles2,OC,OCoffset2,INI_OC_WEIGHT,D,nvertn,nvert,Chordoffset2,OCout,OCdv,OCdoff,NULL);
             mult_with_cons(OCout,1,nOCtotal,ocW);
             set_submatrix(S,1,Slength,OCout,1,nOCtotal,0,OCrowpos);
+            if(INI_FREE_CHORD_NMR>0)
+            {
+                vector_regularization(Chordoffset2,nChordoffsets,&vectorreg,dvectorreg);
+                S[Slength-1]=INI_OCW*vectorreg;
+            }
         }
         if(INI_HAVE_RD)
         {
@@ -455,7 +543,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         set_submatrix(S,1,Slength,Ares,1,nfacn,0,regpos+2); //Area regularization
         
         matrix_transprod(S,Slength,1,&chisq2);
-        matrix_transprod(AOout,nAOtotal,1,&AOfit);
+        //matrix_transprod(AOout,nAOtotal,1,&AOfit);
         printf("Round: %d chisq2: %f \n",k+1,chisq2);
         //printf("k=%d\n",k);
         if(chisq2<chisq)
@@ -478,7 +566,11 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                     memcpy(AOscale,AOscale2,sizeof(double)*nAO);
             }
             if(INI_HAVE_OC)
+            {
                 memcpy(OCoffset,OCoffset2,sizeof(double)*(nOCoffsets));
+                if(INI_FREE_CHORD_NMR>0)
+                    memcpy(Chordoffset,Chordoffset2,sizeof(double)*(nChordoffsets));
+            }
             if(INI_HAVE_RD)
             {
                 memcpy(RDoffset,RDoffset2,sizeof(double)*(nRDoffsets));
@@ -511,7 +603,13 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
              if(INI_HAVE_OC)
              {
                  printf("OCC offsets: ");
-             print_matrix(OCoffset,1,nOCoffsets);
+                 print_matrix(OCoffset,1,nOCoffsets);
+                 if(INI_FREE_CHORD_NMR>0)
+                 {
+                     printf("OCC chord offsets(seconds):\n");
+                     print_matrix(Chordoffset,1,nChordoffsets);
+                 }
+             
              }
             write_shape_file(OUT_SHAPE_FILE,tlistn,vlistn,nfacn,nvertn);
             FILE* fid=fopen(OUT_PARAM_FILE,"w");

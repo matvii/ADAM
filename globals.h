@@ -38,6 +38,7 @@ extern double INI_DW;
 extern double INI_OW;
 extern double INI_OCW;
 extern double INI_RW;
+extern double INI_CHRDW;
 extern double INI_LAMBDA;
 extern double *INI_PARAMS;
 extern double *INI_AO_WEIGHT;
@@ -48,4 +49,13 @@ extern AOstruct *INI_AO;
 extern LCstruct *INI_LC;
 extern OCstruct *INI_OC;
 extern RDstruct *INI_RD;
+
+
+extern int INI_FIX_SHAPE;
+extern int INI_FIX_ANGLES;
+extern int INI_MASK_SET;
+extern int *INI_PARAMETER_MASK;
+extern double *INI_CHORD_OFFSET;
+extern int *INI_FREE_CHORD_LIST;
+extern int INI_FREE_CHORD_NMR;
 #endif

@@ -44,6 +44,7 @@ double INI_AW=0;
 double INI_DW=0;
 double INI_OW=0;
 double INI_RW=0;
+double INI_CHRDW=0;
 double *INI_AO_WEIGHT=NULL;
 double *INI_OC_WEIGHT=NULL;
 double *INI_RD_WEIGHT=NULL;
@@ -55,6 +56,12 @@ AOstruct *INI_AO;
 LCstruct *INI_LC;
 OCstruct *INI_OC;
 RDstruct *INI_RD;
+double *INI_CHORD_OFFSET=NULL;
+int INI_MASK_SET=0;
+int *INI_FREE_CHORD_LIST=NULL;
+int INI_FREE_CHORD_NMR=0;
+int INI_FIX_SHAPE=0;
+int INI_FIX_ANGLES=0;
 int parse_ini(char *filename)
 {
     char *ephmfile;
@@ -123,6 +130,14 @@ int parse_ini(char *filename)
         fprintf(stderr,"Rotation angles must be set in the ini file\n");
         exit(1);
     }
+    s=iniparser_getstring(ini,"Shape:FixShape",NULL);
+    if(s!=NULL)
+        INI_FIX_SHAPE=atoi(s);
+    s=iniparser_getstring(ini,"Shape:FixAngles",NULL);
+    if(s!=NULL)
+        INI_FIX_ANGLES=atoi(s);
+    if(INI_FIX_SHAPE==1 || INI_FIX_ANGLES==1)
+        INI_MASK_SET=1;
     //Parse optimization
     s=iniparser_getstring(ini,"Optimization:NumberofRounds","50");
     NUM_OF_ROUNDS=atoi(s);
@@ -148,6 +163,8 @@ int parse_ini(char *filename)
     INI_LAMBDA=atof(s);
     s=iniparser_getstring(ini,"Optimization:RDexp","2");
     INI_RDEXP=log(atoi(s));
+    s=iniparser_getstring(ini,"Optimization:ChordWeight","1");
+    INI_CHRDW=atof(s);
     //Parse Data
     s=iniparser_getstring(ini,"Data:UseLC","1");
     INI_HAVE_LC=atoi(s);
@@ -435,9 +452,7 @@ int parse_ini(char *filename)
         if(s!=NULL)
         {
             INI_OC_OFFSET=calloc(2*(INI_OC->noc),sizeof(double));
-            INI_OC_OFFSET[0]=atof(strtok(s,","));
-            for(int k=1;k<2*(INI_OC->noc);k++)
-            INI_OC_OFFSET[k]=atof(strtok(NULL,","));
+            parse_vector(s,INI_OC_OFFSET,2*(INI_OC->noc));
          
             
            
@@ -450,6 +465,20 @@ int parse_ini(char *filename)
                 INI_OC_WEIGHT[l]=1.0;
             read_vector_file(s,INI_OC_WEIGHT,INI_OC->ntotal);
         }
+        s=iniparser_getstring(ini,"OC:FreeChords",NULL);
+        if(s!=NULL)
+        {
+            INI_MASK_SET=1;
+            INI_FREE_CHORD_LIST=calloc(INI_OC->ntotal,sizeof(double));
+            INI_FREE_CHORD_NMR=parse_vectorI(s,INI_FREE_CHORD_LIST,INI_OC->ntotal);
+        }
+        s=iniparser_getstring(ini,"OC:ChordOffset",NULL);
+        if(s!=NULL)
+        {
+            INI_CHORD_OFFSET=calloc(INI_OC->ntotal,sizeof(double));
+            parse_vector(s,INI_CHORD_OFFSET,INI_OC->ntotal);
+        }
+            
         
             
             

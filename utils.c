@@ -307,6 +307,7 @@ struct LC  *read_lcurve(char* filename,double min_tim)
       total+=nobs;
       
   }
+  free(buffer);
   fclose(fid);
   tlc->ntotal=total;
   return tlc;
@@ -923,66 +924,145 @@ void zero_array(double *array,int count)
 {
     memset(array,0,sizeof(double)*count);
 }
-void read_vector_file(char *filename,double *M,int n)
+void mask_matrix(int m,int *mask,double **D,int *n)
 {
+    /*
+     * Generate mxm identity matrix, remove columns
+     * corresponding to positions of ones in the array mask
+     * Final matrix is mxn matrix
+     * OUTPUT:
+     * D and n
+     */
+    int count=0;
+    for(int j=0;j<m;j++)
+        if(mask[j]==0)
+            count++;
+    *n=count;
+   
+    double *M=calloc(m*count,sizeof(double));
+    int i=0;
+    for(int j=0;j<m;j++)
+    {
+        if(mask[j]==0)
+        {
+            M[i+j*count]=1;
+            i++;
+        }
+    }
+    *D=M;
+}
+int read_vector_file(char *filename,double *buffer,int bufsize)
+{
+    /*
+     * Read <=bufsize vector of double values from a file. Lines starting with # or ;
+     *are ignored. Any delimeter( \t\r\n\f\v,) can be used to separate values.
+     */ 
     FILE *fid;
     fid=fopen(filename,"r");
-    if(fid==NULL)
-  {
-      perror("Cannot open  file!");
-      exit(-1);
-  }
-
-  int count=0;
-  while(fscanf(fid,"%lf",M+count)>0 && count<n)
-  {
-      count++;
-  }
- //printf("count: %d\n",count);
-}
-/*
-int main()
-{
-    double A[]={1.0,2.0,3.0,4.0,5.0,6.0};
-    double B[]={1.5,1.6};
-    double C[]={1.7,2.7,3.7};
-    double *D;
-    double *F;
-    D=malloc(6*sizeof(double));
-    for(int i=0;i<6;i++)
-        D[i]=(double)(i+10);
-    printf("Matrix A:\n");
-    print_matrix(A,2,3);
-    printf("Matrix D:\n");
-    print_matrix(D,2,3);
-    //double* Aa=&A[0];
-    printf("New matrix D:\n");
-    combine_matrices(&D,A,2,3,2);
-    print_matrix(D,4,3);
-    
-    F=join_matrices(A,B,2,3,1);
-    printf("Matrix F:\n");
-    print_matrix(F,2,4);
-}
-
-
-int main()
-{
-     double A[]={1.0,2.0,3.0,4.0,5.0,6.0};
-     double res;
-     int V[]={0,1};
-     res=sum_matelC(A,2,3,V,2,1);
-     printf("res: %f\n",res);
-     /*
-    int A[]={0,1,0,1,1,0,1,1,1};
-    int *V;
-    int res;
-    for(int j=0;j<3;j++)
+     char delims[]=" \t\r\n\f\v,";
+     char *token;
+     char *buff,*filebuff;
+     buff=malloc(10000);
+     filebuff=malloc(10000);
+     if(fid==NULL)
     {
-    res=ind2vec(A,3,&V,j);
-    printf("res: %d",res);
-    print_matrixI(V,1,3);
-
+        perror("Error opening file in read_vector_file");
+        exit(-1);
+    }
+    int count=0;
+    while(fgets(buff,10000,fid)!=NULL)
+    {
+        if(buff[0]=='#' || buff[0]==';')
+            continue;
+        memcpy(filebuff,buff,10000);
+    token=strtok(filebuff,delims);
+    while(token!=NULL && count<bufsize)
+    {
+        buffer[count]=atof(token);
+        token=strtok(NULL,delims);
+        count++;
+    }
+    }
+    free(buff);
+    free(filebuff);
+    return count;
 }
-*/
-    
+int parse_vector(char *string,double *vec,int maxlength)
+{
+    char delims[]=" \t\r\n\f\v,";
+     char *token;
+    token=strtok(string,delims);
+    int count=0;
+    while(token!=NULL && count<maxlength)
+    {
+        vec[count]=atof(token);
+        token=strtok(NULL,delims);
+        count++;
+    }
+    return count;
+}
+int parse_vectorI(char *string,int *vec,int maxlength)
+{
+    char delims[]=" \t\r\n\f\v,";
+     char *token;
+    token=strtok(string,delims);
+    int count=0;
+    while(token!=NULL && count<maxlength)
+    {
+        vec[count]=atoi(token);
+        token=strtok(NULL,delims);
+        count++;
+    }
+    return count;
+}
+int read_vector_fileI(char *filename,int *buffer,int bufsize)
+{
+    /*
+     * Read <=bufsize vector of int values from a file. Lines starting with # or ;
+     *are ignored. Any delimeter( \t\r\n\f\v,) can be used to separate values.
+     */ 
+     FILE *fid;
+    fid=fopen(filename,"r");
+     char delims[]=" \t\r\n\f\v,";
+     char *token;
+     char *buff,*filebuff;
+     buff=malloc(10000);
+     filebuff=malloc(10000);
+     if(fid==NULL)
+    {
+        perror("Error opening file in read_vector_file");
+        exit(-1);
+    }
+    int count=0;
+    while(fgets(buff,10000,fid)!=NULL)
+    {
+        if(buff[0]=='#' || buff[0]==';')
+            continue;
+        memcpy(filebuff,buff,10000);
+    token=strtok(filebuff,delims);
+    while(token!=NULL && count<bufsize)
+    {
+        buffer[count]=atoi(token);
+        token=strtok(NULL,delims);
+        count++;
+    }
+    }
+    free(buff);
+    free(filebuff);
+    return count;
+}
+ void vector_regularization(double *V,int n,double *sV,double *dV)
+{
+    /*
+     * Calculate Sum(V[i])^2
+     * and its derivatives wrt V[i]
+     * OUTPUT:
+     * n element array dV, where dV[i] is derivative wrt V[i]
+     * */
+    *sV=0.0;
+    for(int j=0;j<n;j++)
+    {
+        (*sV)+=pow(V[j],2);
+        dV[j]=2*V[j];
+    }
+} 

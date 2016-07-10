@@ -33,3 +33,13 @@ Viikinkoski, M; Kaasalainen, M.; Durech, J.: *ADAM: a general method for for usi
 ##Contact
 Bug reports, data, feature suggestions and comments are welcome.
 Matti Viikinkoski (matti.viikinkoski@gmail.com)
+
+##Updates
+#10.7.2016
+- Added support for occultation chord offsets
+- Added support for optimizing occultation chord offsets
+
+##TODO
+- Albedo variation
+- Calibrated lightcurves
+- Hapke scattering law

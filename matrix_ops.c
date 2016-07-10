@@ -5,6 +5,16 @@
 #include<cblas.h>
 #include<stdlib.h>
 #include<stdio.h>
+/*
+ * NOTE:
+ * for mxk matrix A, kxn matrix B, C=A*B
+ * ldA is number of columns in A, ldB is number of columns in B,lcC number of columns in C
+ * dgemm(CblasRowMajor,CblasNoTrans,CblasNoTrans,m,n,k,1.0,A,ldA,B,ldB,0.0,C,ldC)
+ * for C=A*B' with nxk matrix B
+ * dgemm(CblasRowMajor,CblasNoTrans,CblasTrans,m,n,k,1.0,A,ldA,B,ldB,0.0,C,ldC)
+ * for C=A'*B with kxm matrix A
+ * dgemm(CblasRowMajor,CblasTrans,CblasNoTrans,k,n,m,1.0,A,ldA,B,ldB,0.0,C,ldC)
+ */
 void matrix_transpose(double *A,int m,int n)
 {
     /*Matrix transpose, overwrites A*/
@@ -165,3 +175,24 @@ void matrix_vectorprod(double *A,int m,int n,double *V,double *B,int trans)
     else
         cblas_dgemv(CblasRowMajor,CblasNoTrans,m,n,1.0,A,n,V,1,0.0,B,1);
 }
+void matrix_prod_ATB(double *A,int m,int k,double *B,int n,double *C)
+{
+   /*
+ * A is mxk matrix, B is mxn matrix
+ * C=A'*B
+ */ 
+   cblas_dgemm(CblasRowMajor,CblasTrans,CblasNoTrans,k,n,m,1.0,A,k,B,n,0.0,C,n);
+}
+
+ void matrix_prod_ATBA(double *A,int m,int k,double *B,double *D)
+ {
+     /*
+      * Calculate A'*B*A,
+      * where A is mxk, B is mxm
+      * OUTPUT D is kxk matrix
+      */
+     double *C=calloc(m*k,sizeof(double));
+     matrix_prod(B,m,m,A,k,C);
+     matrix_prod_ATB(A,m,k,C,k,D);
+     free(C);
+ }

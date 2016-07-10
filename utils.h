@@ -13,18 +13,22 @@
 #include<string.h>
 #include"structs.h"
 #include"wcstools-3.9.2/libwcs/fitsfile.h"
+int parse_vector(char *string,double *vec,int maxlength);
+int parse_vectorI(char *string,int *vec,int maxlength);
+void vector_regularization(double *V,int n,double *sV,double *dV);
 void Calculate_RDs(int *tlist,double *vlist,int nfac,int nvert,double *angles,RDstruct  *RDs,double *offset,double *D,int dm,int dn,double *scale,double rexp,double *FT,double *FTdv,double *FTdoff,double *FTdsc,double *FTdxp,int deriv);
-
+int read_vector_fileI(char *filename,int *buffer,int bufsize);
+void mask_matrix(int m,int *mask,double **D,int *n);
 int find_index(double *vect,int n,double x);
 void readfits_rd(char* filename,double **buffer,int x0,int y0,int nx,int ny,double *date,int *xsize,int *ysize,double *cdelt1,double *cdelt2);
 RDstruct * process_rd_images(char **filenames,int nao,int *x0,int *y0,int *nx,int *ny, double *dx,double *dy,double *dates,double *RadarFreq,double min_tim,double *E,double *TIME,int nephm,int* LowFreq);
 void calc_image_fft_unnormed(double *M,int m,int n,double dx,double dy,double *zMr,double *zMi,double *Fx,double *Fy);
 double sinc(double x);
-void read_vector_file(char *filename,double *M,int n);
+int read_vector_file(char *filename,double *M,int n);
 int calc_rot_frame(char *fitsfile,double *E,double *up);
-void Fit_Occ(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *up,double *E,double *V,double *TIME,double *offset,double *chords,int *type,int nchords,double *W,double *dist,double *dx,double *dy,double *dz,double *dangles,double *dtox,double *dtoy);
+void Fit_Occ(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *up,double *E,double *V,double *TIME,double *offset,double *chords,int *type,int nchords,double *W,double *Chordoffset,double *dist,double *dx,double *dy,double *dz,double *dangles,double *dtox,double *dtoy,double *dChordoffset);
 void find_chord(int *tlist,double *vlist2,int nfac,int nvert,double *offset,double *a,double *b,int *Adj,int *cledge,int *faedge,double *clpoint,double *fapoint,int *inters,double *dclpx,double *dclpy,double *dfapx,double *dfapy);
-void calculate_OCs(int *tlist,double *vlist,int nfac,int nvert,double *angles,OCstruct* OC,double *offset,double *W,double *D,int dm,int dn,double* OCdist,double* dOdv,double *dOdoff);
+void calculate_OCs(int *tlist,double *vlist,int nfac,int nvert,double *angles,OCstruct* OC,double *offset,double *W,double *D,int dm,int dn,double *Chordoffset,double* OCdist,double* dOdv,double *dOdoff,double *dchordoffset);
 void Calculate_Temp_deriv(int *tlist, double *vlist,int nfac,int nvert,double* angles,double* E0,double t0,double Gamma, double A,double R,int N,double *Tres,double *Tresdx,double *Tresdy,double *Tresdz, double *TresdA);
 void Calculate_Temp(int *tlist, double *vlist,int nfac,int nvert,double* angles,double* E0,double t0,double Gamma, double A,double R,int N,double *Tres);
 void Calculate_HF_deriv(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *Eo,double *E0o,double *up,double TIME,double dist,double Gamma,double A,double Hdist,int N,double WL,double *freqx,double *freqy,int nfreq,double *offset,double *Fr,double *Fi,double *dFdxr,double *dFdxi,double  *dFdyr,double  *dFdyi,double *dFdzr,double *dFdzi,double *dFdAr,double *dFdAi,double *dFdoffr,double *dFdoffi);

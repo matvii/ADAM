@@ -67,7 +67,10 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         nAOcols=alength+3+2*(AO->nao);
         nAO=AO->nao;
         AOoffset=calloc(2*(AO->nao),sizeof(double));
-        
+        if(INI_INPUT_AO_OFFSET!=NULL)
+        {
+            read_vector_file(INI_INPUT_AO_OFFSET,AOoffset,2*(AO->nao));
+        }
         AOoffset2=calloc(2*(AO->nao),sizeof(double));
         AOout=calloc(nAOtotal,sizeof(double));
         AOdv=calloc(nAOtotal*nAOcolst,sizeof(double));
@@ -91,7 +94,13 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
     int nOC=0;
     int nOCoffsets=0;
     int nOCcolst=0;
+    int nChordoffsets=0;
+    int nvectorreg=0;
     double *OCoffset,*OCoffset2,*OCout,*OCdv,*OCda,OCfit=0,*OCdoff;
+    double *Chordoffset,*Chordoffset2;
+    double *dChordoffset; //Derivative matrix for chord offsets
+    double vectorreg; //regularization for free chord offsets
+    double *dvectorreg; //derivative matrix for free chord offsets, 1xnChordoffsets 
     if(INI_HAVE_OC)
     {
         nOCtotal=4*(OC->ntotal);
@@ -100,13 +109,29 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         nOCoffsets=2*(OC->noc);
         nOC=OC->noc;
         OCoffset=calloc(nOCoffsets,sizeof(double));
+        
         if(INI_OC_OFFSET!=NULL)
             memcpy(OCoffset,INI_OC_OFFSET,sizeof(double)*nOCoffsets);
+            
         OCoffset2=calloc(nOCoffsets,sizeof(double));
         OCdv=calloc(nOCtotal*nOCcolst,sizeof(double));
         OCda=calloc(nOCtotal*(alength+3),sizeof(double));
         OCout=calloc(nOCtotal,sizeof(double));
         OCdoff=calloc(nOCtotal*nOCoffsets,sizeof(double));
+        Chordoffset=calloc(OC->ntotal,sizeof(double));
+        Chordoffset2=calloc(OC->ntotal,sizeof(double));
+        if(INI_CHORD_OFFSET!=NULL)
+        {
+            memcpy(Chordoffset,INI_CHORD_OFFSET,sizeof(double)*OC->ntotal);
+            memcpy(Chordoffset2,INI_CHORD_OFFSET,sizeof(double)*OC->ntotal);
+        }
+        if(INI_FREE_CHORD_NMR>0)
+        {
+            nChordoffsets=OC->ntotal;
+           nvectorreg=1;
+           dChordoffset=calloc(nOCtotal*nChordoffsets,sizeof(double));
+           dvectorreg=calloc(nChordoffsets,sizeof(double));
+        }
     }
     int nRDtotal=0;
     int nRDcols=0,nRDcolst=0;
@@ -168,17 +193,18 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
     int Slength;
     int nLCtotal=LC->ntotal;
     //Number of rows in J
-    Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+1; //LC points+AO points+OC points+RD points convex reg+oct reg+dihedral
-    int nJcols=alength+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nRDoffsets+nRDscale+nRDexp;
+    Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+1+nvectorreg; //LC points+AO points+OC points+RD points convex reg+oct reg+dihedral+[vector reg for free chords]
+    int nJcols=alength+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp;
     S=calloc(Slength,sizeof(double)); 
     J=calloc(Slength*(nJcols),sizeof(double));
     int padding=3+nAOoffsets; 
     JTJ=calloc((nJcols)*(nJcols),sizeof(double));
     JTJpd=calloc((nJcols)*(nJcols),sizeof(double));
     int OCoffsetcolpos=alength+3+ncalib+nAOoffsets+nAOscale;
+    int Chordoffsetcolpos=alength+3+ncalib+nAOoffsets+nAOscale+nOCoffsets;
     int OCrowpos=nLCtotal+nAOtotal;
-    int RDoffsetcolpos=alength+3+ncalib+nAOoffsets+nAOscale+nOCoffsets;
-    int RDscalecolpos=alength+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nRDoffsets;
+    int RDoffsetcolpos=alength+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets;
+    int RDscalecolpos=alength+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets;
     int RDrowpos=nLCtotal+nAOtotal+nOCtotal;
     int regpos=nLCtotal+nAOtotal+nOCtotal+nRDtotal;
     double *LCout,*dLCdv,*rhs,*X,*dLCda;
@@ -187,7 +213,39 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
     dLCda=calloc((nLCtotal)*(alength+3),sizeof(double));
     rhs=calloc(nJcols,sizeof(double));
     X=calloc(nJcols,sizeof(double));
-   
+   //Check if some parameters are fixed:
+    double *Mask_Matrix;
+    int *Mask;
+    int nMask=0;
+    double *MJTJ;
+    double *MJTJpd;
+    double *Mrhs;
+    double *MX;
+    if(INI_MASK_SET==1)
+    {
+        Mask=calloc(nJcols,sizeof(int));
+        if(INI_FIX_SHAPE==1)
+            for(int k=0;k<alength;k++)
+                Mask[k]=1;
+        if(INI_FIX_ANGLES==1)
+            for(int k=alength;k<alength+3;k++)
+                Mask[k]=1;
+        if(INI_FREE_CHORD_NMR>0)
+        {
+            for(int k=0;k<nChordoffsets;k++)
+                Mask[Chordoffsetcolpos+k]=1;
+            for(int k=0;k<INI_FREE_CHORD_NMR;k++)
+                Mask[Chordoffsetcolpos+INI_FREE_CHORD_LIST[k]-1]=0;
+        }
+       
+        
+        mask_matrix(nJcols,Mask,&Mask_Matrix,&nMask);
+        MJTJ=calloc(nMask*nMask,sizeof(double));
+        MJTJpd=calloc(nMask*nMask,sizeof(double));
+        Mrhs=calloc(nMask,sizeof(double));
+        MX=calloc(nMask,sizeof(double));
+        
+    }
     //Weights
     int nvertn=0;
     double angW=INI_DW;
@@ -256,7 +314,20 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         }
         if(INI_HAVE_OC)
         {
-            calculate_OCs(tlist,vlist,nfac,nvert,angles,OC,OCoffset,INI_OC_WEIGHT,NULL,nvert,nvert,OCout,OCdv,OCdoff);
+            if(INI_FREE_CHORD_NMR>0)
+                {
+                    calculate_OCs(tlist,vlist,nfac,nvert,angles,OC,OCoffset,INI_OC_WEIGHT,NULL,nvert,nvert,Chordoffset,OCout,OCdv,OCdoff,dChordoffset);
+                    vector_regularization(Chordoffset,nChordoffsets,&vectorreg,dvectorreg);
+                    mult_with_cons(dChordoffset,nOCtotal,nChordoffsets,-ocW);
+                    mult_with_cons(dvectorreg,1,nChordoffsets,-INI_OCW);
+                    vectorreg*=INI_OCW;
+                    S[Slength-1]=vectorreg; //NOTE ABSOLUTE ADDRESS HERE. FIX!
+                    set_submatrix(J,Slength,nJcols,dChordoffset,nOCtotal,nChordoffsets,OCrowpos,Chordoffsetcolpos); //Chord offsets
+                    set_submatrix(J,Slength,nJcols,dvectorreg,1,nChordoffsets,Slength-1,0);
+                }
+                    
+            else
+                calculate_OCs(tlist,vlist,nfac,nvert,angles,OC,OCoffset,INI_OC_WEIGHT,NULL,nvert,nvert,Chordoffset,OCout,OCdv,OCdoff,NULL);
             matrix_prod(OCdv,nOCtotal,nOCcolst,D1,alength+3,OCda);
             mult_with_cons(OCout,1,nOCtotal,ocW);
             mult_with_cons(OCda,nOCtotal,nOCcols,-ocW); //Note the minus here.
@@ -352,11 +423,25 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
 //          write_matrix_file("/tmp/a.txt",a,alength,1);
 //          write_matrix_file("/tmp/dOda.txt",dOda,1,alength);
 //          write_matrix_file("/tmp/dCRda.txt",dCRda,1,alength);
+         if(INI_MASK_SET==1)
+            {
+                matrix_prod_ATBA(Mask_Matrix,nJcols,nMask,JTJ,MJTJ);
+                matrix_prod_ATB(Mask_Matrix,nJcols,nMask,rhs,1,Mrhs);
+            }
         }
-       matrix_adddiag(JTJ,JTJpd,nJcols,lambda); //JTJpd=JTJ+lambda*diag(JTJ)
+        if(INI_MASK_SET==1)
+        {
+            matrix_adddiag(MJTJ,MJTJpd,nMask,lambda);
+            solve_matrix_eq(MJTJpd,nMask,Mrhs,MX);
+            matrix_prod(Mask_Matrix,nJcols,nMask,MX,1,X);
+        }
+        else
+        {
+        matrix_adddiag(JTJ,JTJpd,nJcols,lambda); //JTJpd=JTJ+lambda*diag(JTJ)
+        
+        solve_matrix_eq(JTJpd,nJcols,rhs,X); //Solve the LM 
+        }
       
-       solve_matrix_eq(JTJpd,nJcols,rhs,X); //Solve the LM 
- 
     
        // add_vector_to_vlist(vlist,X,vlist2,nvert);
        matrix_plus2(a,1,alength,X,a2);
@@ -367,7 +452,11 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
            matrix_plus2(AOscale,1,nAO,&X[alength+3+nAOoffsets],AOscale2);
        }
        if(INI_HAVE_OC)
+       {
            matrix_plus2(OCoffset,1,nOCoffsets,&X[OCoffsetcolpos],OCoffset2);
+           if(INI_FREE_CHORD_NMR>0)
+                matrix_plus2(Chordoffset,1,nChordoffsets,&X[Chordoffsetcolpos],Chordoffset2);
+       }
         angles2[0]=angles[0]+X[alength];
         angles2[1]=angles[1]+X[alength+1];
         angles2[2]=angles[2]+X[alength+2];
@@ -401,9 +490,14 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         }
         if(INI_HAVE_OC)
         {
-            calculate_OCs(tlist,vlist2,nfac,nvert,angles2,OC,OCoffset2,INI_OC_WEIGHT,NULL,nvert,nvert,OCout,OCdv,OCdoff);
+            calculate_OCs(tlist,vlist2,nfac,nvert,angles2,OC,OCoffset2,INI_OC_WEIGHT,NULL,nvert,nvert,Chordoffset2,OCout,OCdv,OCdoff,NULL);
             mult_with_cons(OCout,1,nOCtotal,ocW);
             set_submatrix(S,1,Slength,OCout,1,nOCtotal,0,OCrowpos);
+            if(INI_FREE_CHORD_NMR>0)
+            {
+                vector_regularization(Chordoffset2,nChordoffsets,&vectorreg,dvectorreg);
+                S[Slength-1]=INI_OCW*vectorreg;
+            }
         }
         if(INI_HAVE_RD)
         {
@@ -445,7 +539,11 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
               memcpy(AOscale,AOscale2,sizeof(double)*nAO);
            }
            if(INI_HAVE_OC)
+           {
                memcpy(OCoffset,OCoffset2,sizeof(double)*(nOCoffsets));
+               if(INI_FREE_CHORD_NMR>0)
+                    memcpy(Chordoffset,Chordoffset2,sizeof(double)*(nChordoffsets));
+           }
            if(USE_CALIB==1)
                 memcpy(params,params2,3*sizeof(double));
            if(INI_HAVE_RD)
@@ -484,6 +582,11 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         {
             printf("Occultation offsets:\n");
             print_matrix(OCoffset,1,nOCoffsets);
+            if(INI_FREE_CHORD_NMR>0)
+                 {
+                     printf("OCC chord offsets(seconds):\n");
+                     print_matrix(Chordoffset,1,nChordoffsets);
+                 }
         }
         
       //  printf("Offsets: %f %f %f %f\n",offset[0],offset[1],offset[2],offset[3]);

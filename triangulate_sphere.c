@@ -146,7 +146,7 @@ void triangulate_sphere(int nrows,double *t,double *f,int *ifp)
             }
         }
     }
-  
+ free(nod); 
 }
 /*   
 void main()

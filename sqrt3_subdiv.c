@@ -223,6 +223,9 @@ void map_sqrt_subdiv_limit(int *tlist,double *vlist,int nfac,int nvert,double **
     }
     *D2=D;
     memcpy(vlist,vlistn,sizeof(double)*3*nvert);
+    free(vlistn);
+    free(vMo);
+    free(Neigh);
     
 }
 void Sqrt3_Subdiv(int *tlist,double* vlist,int nfac,int nvert,int **tlistn,double **vlistn,int *nfacn,int *nvertn,double **D,int sdstep)
@@ -262,9 +265,9 @@ void Sqrt3_Subdiv(int *tlist,double* vlist,int nfac,int nvert,int **tlistn,doubl
     {
         *tlistn=calloc(nfac*3,sizeof(int));
         *vlistn=calloc(nvert*3,sizeof(double));
-        *D=calloc(*nvertn*nvert,sizeof(double));
-        memcpy(tlistn,tlist,sizeof(int)*3*nfac);
-        memcpy(vlistn,vlist,sizeof(double)*3*nvert);
+        
+        memcpy(*tlistn,tlist,sizeof(int)*3*nfac);
+        memcpy(*vlistn,vlist,sizeof(double)*3*nvert);
          *nfacn=nfac;
         *nvertn=nvert;
         *D=calloc(*nvertn*nvert,sizeof(double));
@@ -276,8 +279,8 @@ void Sqrt3_Subdiv(int *tlist,double* vlist,int nfac,int nvert,int **tlistn,doubl
         *tlistn=calloc(nfac*3,sizeof(int));
         *vlistn=calloc(nvert*3,sizeof(double));
         *D=NULL;
-        memcpy(tlistn,tlist,sizeof(int)*3*nfac);
-        memcpy(vlistn,vlist,sizeof(double)*3*nvert);
+        memcpy(*tlistn,tlist,sizeof(int)*3*nfac);
+        memcpy(*vlistn,vlist,sizeof(double)*3*nvert);
         *nfacn=nfac;
         *nvertn=nvert;
     }

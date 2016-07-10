@@ -49,8 +49,10 @@ AOstruct * process_ao_images(char **filenames,char **psfnames,int nao,int *x0,in
     int FreqCount=0;
     int index=0;
     //For each image, fill AO structure
+     
     for(int j=0;j<nao;j++)
     {
+       
         AO->scalex[j]=dx[j];
         AO->scaley[j]=dy[j];
         count=0;
