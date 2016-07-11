@@ -11,14 +11,16 @@ ADAM is a program for 3D shape reconstruction of asteroids from disk-resolved ob
 - Blas
 - Cblas
 
-KissFFT, Iniparser and Wcstools are included for convenience.
+KissFFT, Iniparser and Wcstools folders are included for convenience; they come with their own licenses.
 
 ##Building
 - Build Iniparser
 - Build Wcstools
 - Change Makefile to reflect installed libraries, i.e. change reflapacke, reflapack, atlas and atlcbas.
 - make adam
+
 This program has been tested on Linux with gcc 5.3.
+
 ##Usage
 ADAM uses ini files to process data. For an example of asteroid Hertha, 135_1.ini and 135_1_oct.ini (usage: ./adam 135_1.ini). For all available config options and short descriptions, see the file Adam.ini.
 Adam.pdf contains some useful tips. For theoretical background, read [Shape reconstruction from generalized projections](http://urn.fi/URN:ISBN:978-952-15-3673-1).
