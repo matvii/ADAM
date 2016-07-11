@@ -34,6 +34,7 @@ Viikinkoski, M; Kaasalainen, M.; Durech, J.: *ADAM: a general method for for usi
 
 ##Contact
 Bug reports, data, feature suggestions and comments are welcome.
+
 Matti Viikinkoski (matti.viikinkoski@gmail.com)
 
 ##Updates
