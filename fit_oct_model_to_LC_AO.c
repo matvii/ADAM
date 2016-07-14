@@ -319,11 +319,11 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                     calculate_OCs(tlist,vlist,nfac,nvert,angles,OC,OCoffset,INI_OC_WEIGHT,NULL,nvert,nvert,Chordoffset,OCout,OCdv,OCdoff,dChordoffset);
                     vector_regularization(Chordoffset,nChordoffsets,&vectorreg,dvectorreg);
                     mult_with_cons(dChordoffset,nOCtotal,nChordoffsets,-ocW);
-                    mult_with_cons(dvectorreg,1,nChordoffsets,-INI_OCW);
-                    vectorreg*=INI_OCW;
+                    mult_with_cons(dvectorreg,1,nChordoffsets,-INI_CHRDW);
+                    vectorreg*=INI_CHRDW;
                     S[Slength-1]=vectorreg; //NOTE ABSOLUTE ADDRESS HERE. FIX!
                     set_submatrix(J,Slength,nJcols,dChordoffset,nOCtotal,nChordoffsets,OCrowpos,Chordoffsetcolpos); //Chord offsets
-                    set_submatrix(J,Slength,nJcols,dvectorreg,1,nChordoffsets,Slength-1,0);
+                    set_submatrix(J,Slength,nJcols,dvectorreg,1,nChordoffsets,Slength-1,Chordoffsetcolpos);
                 }
                     
             else
@@ -396,7 +396,8 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
        
         matrix_transprod(S,Slength,1,&chisq);
        matrix_transprod(LCout,nLCtotal,1,&LCfit);
-        printf("round: %d chisq: %f LCfit: %f AOfit: %f OCfit: %f RDfit: %f Convex reg: %f Octantoid reg: %f Dihedral reg: %f\n",k,chisq,LCfit,AOfit,OCfit,RDfit,pow(CRres,2),pow(Ores,2),pow(ANGres,2)); 
+        printf("round: %d chisq: %f LCfit: %f AOfit: %f OCfit: %f RDfit: %f Convex reg: %f Octantoid reg: %f Dihedral reg: %f\n",k,chisq,LCfit,AOfit,OCfit,RDfit,pow(CRres,2),pow(Ores,2),pow(ANGres,2));
+        printf("vector reg: %f\n",vectorreg);
        //printf("scale: %f %f\n",AOscale[0],AOscale[1]);
         //Construct Jacobian matrix
         
@@ -496,7 +497,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
             if(INI_FREE_CHORD_NMR>0)
             {
                 vector_regularization(Chordoffset2,nChordoffsets,&vectorreg,dvectorreg);
-                S[Slength-1]=INI_OCW*vectorreg;
+                S[Slength-1]=INI_CHRDW*vectorreg;
             }
         }
         if(INI_HAVE_RD)

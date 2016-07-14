@@ -323,8 +323,8 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                     calculate_OCs(tlistn,vlistn,nfacn,nvertn,angles,OC,OCoffset,INI_OC_WEIGHT,D,nvertn,nvert,Chordoffset,OCout,OCdv,OCdoff,dChordoffset);
                     vector_regularization(Chordoffset,nChordoffsets,&vectorreg,dvectorreg);
                     mult_with_cons(dChordoffset,nOCtotal,nChordoffsets,-ocW);
-                    mult_with_cons(dvectorreg,1,nChordoffsets,-INI_OCW);
-                    vectorreg*=INI_OCW;
+                    mult_with_cons(dvectorreg,1,nChordoffsets,-INI_CHRDW);
+                    vectorreg*=INI_CHRDW;
                     S[Slength-1]=vectorreg; //NOTE ABSOLUTE ADDRESS HERE. FIX!
                     set_submatrix(J,Slength,nJcols,dChordoffset,nOCtotal,nChordoffsets,OCrowpos,Chordoffsetcolpos); //Chord offsets
                     set_submatrix(J,Slength,nJcols,dvectorreg,1,nChordoffsets,Slength-1,Chordoffsetcolpos);
@@ -515,7 +515,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             if(INI_FREE_CHORD_NMR>0)
             {
                 vector_regularization(Chordoffset2,nChordoffsets,&vectorreg,dvectorreg);
-                S[Slength-1]=INI_OCW*vectorreg;
+                S[Slength-1]=INI_CHRDW*vectorreg;
             }
         }
         if(INI_HAVE_RD)
