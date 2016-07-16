@@ -611,6 +611,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                  }
              
              }
+             Sqrt3_Subdiv(tlist,vlist,nfac,nvert,&tlistn,&vlistn,&nfacn,&nvertn,&D,INI_SD_LEVEL);
             write_shape_file(OUT_SHAPE_FILE,tlistn,vlistn,nfacn,nvertn);
             FILE* fid=fopen(OUT_PARAM_FILE,"w");
             FILE* fidlc=fopen(OUT_LC_FILE,"w");
