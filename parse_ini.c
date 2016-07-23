@@ -225,7 +225,11 @@ int parse_ini(char *filename)
          INI_MASK_SET=1;
     }
     }
-    
+    if(INI_LC->calib==1 && INI_PHASE_PARAMS==NULL)
+    {
+        fprintf(stderr,"There are calibrated lightcurves, but phase params are not set. Either set AllLCRelative=1 or PhaseParams=...\n");
+        exit(1);
+    }
     
     
     //If AO data exists, read the images
