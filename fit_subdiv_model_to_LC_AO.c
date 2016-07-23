@@ -28,20 +28,21 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     Sqrt3_Subdiv(tlist,vlist,nfac,nvert,&tlistn,&vlistn,&nfacn,&nvertn,&D,INI_SD_LEVEL);
    
     //This is for calibrated lightcurves
-    double *params,*params2;
-    if(INI_PARAMS!=NULL)
+    double *params=NULL,*params2=NULL;
+    if(INI_PHASE_PARAMS!=NULL)
     {
         params=calloc(4,sizeof(double));
         params2=calloc(4,sizeof(double));
-        params[0]=INI_PARAMS[0];
-        params[1]=INI_PARAMS[1];
-        params[2]=INI_PARAMS[2];
-        params[3]=INI_PARAMS[3];
+        params[0]=INI_PHASE_PARAMS[0];
+        params[1]=INI_PHASE_PARAMS[1];
+        params[2]=INI_PHASE_PARAMS[2];
+        params[3]=INI_PHASE_PARAMS[3];
+        memcpy(params2,params,sizeof(double)*4);
     }
     int USE_CALIB=LC->calib;
     int ncalib=0;
     if(USE_CALIB==1)
-        ncalib=3;
+        ncalib=4;
     //This is for calibrated lightcurves end
     int nAOtotal=0;
     int nAOcols=0;
@@ -197,6 +198,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     int RDrowpos=nLCtotal+nAOtotal+nOCtotal;
     
     int regpos=nLCtotal+nAOtotal+nOCtotal+nRDtotal;
+    
     S=calloc(Slength,sizeof(double)); 
     J=calloc(Slength*(nJcols),sizeof(double));
     
@@ -210,9 +212,11 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     double *MJTJpd;
     double *Mrhs;
     double *MX;
+  
     if(INI_MASK_SET==1)
     {
         Mask=calloc(nJcols,sizeof(int));
+        
         if(INI_FIX_SHAPE==1)
             for(int k=0;k<3*nvert;k++)
                 Mask[k]=1;
@@ -226,7 +230,14 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             for(int k=0;k<INI_FREE_CHORD_NMR;k++)
                 Mask[Chordoffsetcolpos+INI_FREE_CHORD_LIST[k]-1]=0;
         }
-       
+        if(INI_PHASE_MASK!=NULL)
+        {
+            Mask[nJcols-4]=INI_PHASE_MASK[0];
+            Mask[nJcols-3]=INI_PHASE_MASK[1];
+            Mask[nJcols-2]=INI_PHASE_MASK[2];
+            Mask[nJcols-1]=INI_PHASE_MASK[3];
+            
+        }
         
         mask_matrix(nJcols,Mask,&Mask_Matrix,&nMask);
         MJTJ=calloc(nMask*nMask,sizeof(double));
@@ -242,13 +253,13 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     double LCfit;
     double RDfit=0;
     LCout=calloc(nLCtotal,sizeof(double));
-    dLCdv=calloc((nLCtotal)*(3*nvert+ncalib+3),sizeof(double));
+    dLCdv=calloc((nLCtotal)*(3*nvert+3),sizeof(double));
     rhs=calloc(nJcols,sizeof(double));
     X=calloc(nJcols,sizeof(double));
     //phase parameters
     double *dLCdp=NULL;
     if(USE_CALIB==1)
-        dLCdp=calloc(nLCtotal*3,sizeof(double));
+        dLCdp=calloc(nLCtotal*4,sizeof(double));
     
     //Weights
     
@@ -265,11 +276,13 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     double chisq2;
     double Aresfit;
     double dec[2]={1,1};
-    double threshold=0.1;
+    double threshold=INI_MINDEC;
     int count=0;
     int DONE=0;
     // NUM_OF_ROUNDS=1;
    // exit(1);
+  // vlist[3]=vlist[3]+1e-6;
+//     params[3]=params[3]+1e-6;
     for(int k=0;k<NUM_OF_ROUNDS;k++)
     {
         if(decreased==1)
@@ -277,13 +290,15 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             
             Sqrt3_Subdiv(tlist,vlist,nfac,nvert,&tlistn,&vlistn,&nfacn,&nvertn,&D,INI_SD_LEVEL); //Do  subdivision. Remember to free allocated mem
             //Calculate LCs
-                    
+            
             calculate_lcs(tlistn,vlistn,nfacn,nvertn,angles,LC,D,nvertn,nvert,LCout,dLCdv,NULL,NULL,NULL,params,dLCdp,1);
+           
             /////////////DEBUG////////////////////////////////
 //               write_shape_file("/tmp/Inishape.txt",tlistn,vlistn,nfacn,nvertn);
 //               write_matrix_file("/tmp/D.txt",D,nvertn,nvert);
-//                     write_matrix_file("/tmp/LCout.txt",LCout,1,nLCtotal);
+//                      write_matrix_file("/tmp/LCout.txt",LCout,1,nLCtotal);
 //                      write_matrix_file("/tmp/dLCdv.txt",dLCdv,nLCtotal,3*nvert+3);
+//                      write_matrix_file("/tmp/dLCdp.txt",dLCdp,nLCtotal,4);
             ///////////DEBUG/////////////////////////////////////
             //AO data
             if(INI_HAVE_AO)
@@ -325,9 +340,9 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                     mult_with_cons(dChordoffset,nOCtotal,nChordoffsets,-ocW);
                     mult_with_cons(dvectorreg,1,nChordoffsets,-INI_CHRDW);
                     vectorreg*=INI_CHRDW;
-                    S[Slength-1]=vectorreg; //NOTE ABSOLUTE ADDRESS HERE. FIX!
+                    S[regpos+2+nfacn]=vectorreg; //NOTE ABSOLUTE ADDRESS HERE. FIX!
                     set_submatrix(J,Slength,nJcols,dChordoffset,nOCtotal,nChordoffsets,OCrowpos,Chordoffsetcolpos); //Chord offsets
-                    set_submatrix(J,Slength,nJcols,dvectorreg,1,nChordoffsets,Slength-1,Chordoffsetcolpos);
+                    set_submatrix(J,Slength,nJcols,dvectorreg,1,nChordoffsets,regpos+2+nfacn,Chordoffsetcolpos);
                 }
                     
                 else
@@ -392,7 +407,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             ///////////DEBUG///////////////////////////
 //             write_matrix_file("/tmp/dAdv.txt",dAdv,nfacn,3*nvert+3);
             ///////////DEBUG///////////////////////////
-            
+           
             mult_with_cons(LCout,1,nLCtotal,lcW);
             mult_with_cons(dLCdv,nLCtotal,3*nvert+3,lcW);
             CRres*=cW;
@@ -402,7 +417,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             mult_with_cons(dANGdv,1,3*nvert+3,-angW);
             mult_with_cons(Ares,1,nfacn,aW);
             mult_with_cons(dAdv,nfacn,3*nvert+3,-aW);
-            
+             
             
             //Build the res vector and matrix
             set_submatrix(S,1,Slength,LCout,1,nLCtotal,0,0);
@@ -411,10 +426,10 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             
             S[regpos]=CRres; //Convex reg terms
             S[regpos+1]=ANGres;
-            
+             
             set_submatrix(S,1,Slength,Ares,1,nfacn,0,regpos+2); //Area regularization
             
-            
+           
             matrix_transprod(LCout,nLCtotal,1,&LCfit);
             matrix_transprod(S,Slength,1,&chisq);
             matrix_transprod(Ares,nfacn,1,&Aresfit);
@@ -428,18 +443,28 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             set_submatrix(J,Slength,nJcols,dANGdv,1,3*nvert+3,regpos+1,0);
             set_submatrix(J,Slength,nJcols,dAdv,nfacn,3*nvert+3,regpos+2,0);
             
+//             write_matrix_file("/tmp/dCRdv.txt",dCRdv,1,3*nvert+3);
+//             write_matrix_file("/tmp/dANGdv.txt",dANGdv,1,3*nvert+3);
+//             write_matrix_file("/tmp/dAdv.txt",dAdv,nfacn,3*nvert+3);
+            
             //include lc parameter derivatives
             if(USE_CALIB==1)
-                set_submatrix(J,Slength,nJcols,dLCdp,nLCtotal,3,0,nJcols-3);
-            
+            {
+                mult_with_cons(dLCdp,nLCtotal,4,lcW);
+                set_submatrix(J,Slength,nJcols,dLCdp,nLCtotal,4,0,nJcols-4);
+            }
+//             write_matrix_file("/tmp/LCout.txt",LCout,1,nLCtotal);
+//                      write_matrix_file("/tmp/dLCdv.txt",dLCdv,nLCtotal,3*nvert+3);
+//                      write_matrix_file("/tmp/dLCdp.txt",dLCdp,nLCtotal,4);
             //Calculate J^TJ+lambda*J
             // matrix_transprod(J,Slength,nJcols,JTJ);
             free(tlistn);
             free(vlistn);
             free(D);
             /////////////DEBUG////////////////////////////////
-//                       write_matrix_file("/tmp/S.txt",S,Slength,1);
-//                        write_matrix_file("/tmp/J.txt",J,Slength,nJcols);
+//                        write_matrix_file("/tmp/S.txt",S,Slength,1);
+//                         write_matrix_file("/tmp/J.txt",J,Slength,nJcols);
+//                         exit(1);
             /////////////DEBUG////////////////////////////////     
             matrix_transprod(J,Slength,nJcols,JTJ);
             matrix_vectorprod(J,Slength,nJcols,S,rhs,1); //rhs=J^T*S;
@@ -448,6 +473,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 matrix_prod_ATBA(Mask_Matrix,nJcols,nMask,JTJ,MJTJ);
                 matrix_prod_ATB(Mask_Matrix,nJcols,nMask,rhs,1,Mrhs);
             }
+            
         }
         if(INI_MASK_SET==1)
         {
@@ -483,10 +509,10 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         angles2[3]=angles[3];
         if(USE_CALIB==1)
         {
-            params2[0]=params[0]+X[nJcols-3];
-            params2[1]=params[1]+X[nJcols-2];
-            params2[2]=params[2]+X[nJcols-1];
-            params2[3]=params[3];
+            params2[0]=params[0]+X[nJcols-4];
+            params2[1]=params[1]+X[nJcols-3];
+            params2[2]=params[2]+X[nJcols-2];
+            params2[3]=params[3]+X[nJcols-1];
         }
         if(INI_HAVE_RD)
         {
@@ -544,7 +570,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         
         matrix_transprod(S,Slength,1,&chisq2);
         //matrix_transprod(AOout,nAOtotal,1,&AOfit);
-        printf("Round: %d chisq2: %f \n",k+1,chisq2);
+        printf("Round: %d chisq2: %f lambda: %f \n",k+1,chisq2,lambda);
         //printf("k=%d\n",k);
         if(chisq2<chisq)
         {
@@ -559,6 +585,8 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             angles[0]=angles2[0];
             angles[1]=angles2[1];
             angles[2]=angles2[2];
+            if(USE_CALIB==1)
+                memcpy(params,params2,sizeof(double)*4);
             if(INI_HAVE_AO)
             {
                 memcpy(AOoffset,AOoffset2,sizeof(double)*(nAOoffsets));
@@ -577,15 +605,14 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 memcpy(RDscale,RDscale2,sizeof(double)*nRDscale);
                 RDexp=RDexp2;
             }
-            lambda=0.1*lambda;
+            lambda=lambda/INI_LAMBDAINC;
             zero_array(J,Slength*nJcols);
             zero_array(S,Slength);
-            if(USE_CALIB==1)
-                memcpy(params,params2,3*sizeof(double));
+            
         }
         else
         {
-            lambda=10*lambda;
+            lambda=INI_LAMBDAINC*lambda;
             decreased=0;
             
         }
@@ -594,8 +621,11 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             printf("Two previous optimization steps below threshold, stopping optimization loop.\n");
             DONE=1;
         }
-        if(lambda>1e4)
+        if(lambda>INI_LAMBDAMAX)
+        {
+            printf("Lambda is larger than LambdaMax, stopping loop\n");
             DONE=1;
+        }
         if(k==NUM_OF_ROUNDS-1 || DONE==1)
         {
             printf("Angles: %.4f %.4f %.8f\n",angles[0],angles[1],angles[2]);
@@ -636,10 +666,19 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 fclose(fidlc);
             }
             //printf("writing shape params:\n");
+            
+            
+            if(params!=NULL)
+            {
+                printf("Phase parameters:\n");
+                print_matrix(params,1,4);
+            }
+            
             if(OUT_SHAPE_PARAM_FILE!=NULL)
                 write_shape_file(OUT_SHAPE_PARAM_FILE,tlist,vlist,nfac,nvert);
             if(INI_OUTPUT_AO_OFFSET!=NULL)
                 write_matrix_file(INI_OUTPUT_AO_OFFSET,AOoffset,1,nAOoffsets);
+          //  print_matrix(params,1,4);
             return;
         }
         free(vlistn);

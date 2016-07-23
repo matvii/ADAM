@@ -4,6 +4,7 @@
 #include<complex.h>
 #include"structs.h"
 #include"utils.h"
+#include"globals.h"
 int find_index(double *vect,int n,double x)
 {
     double TOL=1e-2;
@@ -260,6 +261,10 @@ struct LC  *read_lcurve(char* filename,double min_tim)
       (*tlc).TIME[i]=malloc(nobs*sizeof(double));
       br=malloc(nobs*sizeof(double));
       cumsum=0;
+      if(INI_LC_ARE_RELATIVE==1)
+      {
+          cal=0;
+      }
       if(cal==0)
           (*tlc).rel[i]=1;
       for(int j=0;j<nobs;j++)
@@ -287,8 +292,10 @@ struct LC  *read_lcurve(char* filename,double min_tim)
       /*Copy relative brightness values to array*/
       /////////////////////////////////////////////////////////7
       //DO NOT USE CALIBRATED
-      cal=0;
+     // cal=0;
       //////////////////////////////////////////////////////////
+      
+      
       if(cal==0)
       {
           for(int k=0;k<nobs;k++)
@@ -299,7 +306,7 @@ struct LC  *read_lcurve(char* filename,double min_tim)
           for(int k=0;k<nobs;k++)
               (*tlc).lcs[i][k]=br[k];
           tlc->calib=1;
-          printf("calibrated!\n");
+          printf("Lcurve %d is taken as calibrated\n",i+1);
       }
               
           

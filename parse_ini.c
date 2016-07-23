@@ -45,13 +45,18 @@ double INI_DW=0;
 double INI_OW=0;
 double INI_RW=0;
 double INI_CHRDW=0;
+double INI_CALIBLCW=0;
+double INI_LAMBDAINC=10;
+double INI_LAMBDAMAX=1e6;
+double INI_MINDEC=0.1;
 double *INI_AO_WEIGHT=NULL;
 double *INI_OC_WEIGHT=NULL;
 double *INI_RD_WEIGHT=NULL;
+int *INI_PHASE_MASK=NULL;
 double INI_LAMBDA=1;
 double INI_RDEXP=0.59;
 int INI_AO_SCALING=0;
-double *INI_PARAMS;
+double *INI_PHASE_PARAMS=NULL;
 AOstruct *INI_AO;
 LCstruct *INI_LC;
 OCstruct *INI_OC;
@@ -62,6 +67,7 @@ int *INI_FREE_CHORD_LIST=NULL;
 int INI_FREE_CHORD_NMR=0;
 int INI_FIX_SHAPE=0;
 int INI_FIX_ANGLES=0;
+int INI_LC_ARE_RELATIVE=0;
 int parse_ini(char *filename)
 {
     char *ephmfile;
@@ -161,8 +167,16 @@ int parse_ini(char *filename)
     INI_RW=atof(s);
     s=iniparser_getstring(ini,"Optimization:Lambda","1");
     INI_LAMBDA=atof(s);
+    s=iniparser_getstring(ini,"Optimization:LambdaInc","10");
+    INI_LAMBDAINC=atof(s);
+    s=iniparser_getstring(ini,"Optimization:LambdaMax","1000000");
+    INI_LAMBDAMAX=atof(s);
+    s=iniparser_getstring(ini,"Optimization:MinDec","0.1");
+    INI_MINDEC=atof(s);
     s=iniparser_getstring(ini,"Optimization:RDexp","2");
     INI_RDEXP=log(atoi(s));
+    s=iniparser_getstring(ini,"Optimization:CalibLCWeight","1");
+    INI_CALIBLCW=atof(s);
     s=iniparser_getstring(ini,"Optimization:ChordWeight","1");
     INI_CHRDW=atof(s);
     //Parse Data
@@ -182,18 +196,38 @@ int parse_ini(char *filename)
         INI_HAVE_RD=1;
         nRD=atoi(s);
     }
+    s=iniparser_getstring(ini,"LC:AllLCRelative","0");
+    INI_LC_ARE_RELATIVE=atoi(s);
     s=iniparser_getstring(ini,"LC:LCFile",NULL);
     //Prepare LC data
     INI_LC=read_lcurve(s,INI_MIN_TIM);
-    s=iniparser_getstring(ini,"LC:params",NULL);
+    s=iniparser_getstring(ini,"LC:PhaseParams",NULL);
     if(s!=NULL)
     {
-        INI_PARAMS=calloc(4,sizeof(double));
-        INI_PARAMS[0]=atof(strtok(s,","));
-        INI_PARAMS[1]=atof(strtok(NULL,","));
-        INI_PARAMS[2]=atof(strtok(NULL,","));
-        INI_PARAMS[3]=atof(strtok(NULL,","));
+        
+        INI_PHASE_PARAMS=calloc(4,sizeof(double));
+        INI_PHASE_PARAMS[0]=atof(strtok(s,","));
+        INI_PHASE_PARAMS[1]=atof(strtok(NULL,","));
+        INI_PHASE_PARAMS[2]=atof(strtok(NULL,","));
+        INI_PHASE_PARAMS[3]=atof(strtok(NULL,","));
+       
     }
+    if(INI_PHASE_PARAMS!=NULL)
+    {
+    s=iniparser_getstring(ini,"LC:FixedParams",NULL);
+    if(s!=NULL)
+    {
+        INI_PHASE_MASK=calloc(4,sizeof(int));
+        INI_PHASE_MASK[0]=atoi(strtok(s,","));
+        INI_PHASE_MASK[1]=atoi(strtok(NULL,","));
+        INI_PHASE_MASK[2]=atoi(strtok(NULL,","));
+        INI_PHASE_MASK[3]=atoi(strtok(NULL,","));
+         INI_MASK_SET=1;
+    }
+    }
+    
+    
+    
     //If AO data exists, read the images
     char **AOfiles;
     char **PSFfiles;

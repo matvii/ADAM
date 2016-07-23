@@ -1,1 +1,0 @@
-calc_up_vector

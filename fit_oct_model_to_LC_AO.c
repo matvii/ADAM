@@ -30,20 +30,21 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
     double angles2[4]={0,0,0,0};
    angles2[3]=angles[3];
     //This is for calibrated lightcurves
-    double *params,*params2;
-    if(INI_PARAMS!=NULL)
+    double *params=NULL,*params2=NULL;
+    if(INI_PHASE_PARAMS!=NULL)
     {
         params=calloc(4,sizeof(double));
         params2=calloc(4,sizeof(double));
-        params[0]=INI_PARAMS[0];
-        params[1]=INI_PARAMS[1];
-        params[2]=INI_PARAMS[2];
-        params[3]=INI_PARAMS[3];
+        params[0]=INI_PHASE_PARAMS[0];
+        params[1]=INI_PHASE_PARAMS[1];
+        params[2]=INI_PHASE_PARAMS[2];
+        params[3]=INI_PHASE_PARAMS[3];
+        memcpy(params2,params,sizeof(double)*4);
     }
     int USE_CALIB=LC->calib;
     int ncalib=0;
     if(USE_CALIB==1)
-        ncalib=3;
+        ncalib=4;
     //This is for calibrated lightcurves end
    
     
@@ -207,7 +208,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
     int RDscalecolpos=alength+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets;
     int RDrowpos=nLCtotal+nAOtotal+nOCtotal;
     int regpos=nLCtotal+nAOtotal+nOCtotal+nRDtotal;
-    double *LCout,*dLCdv,*rhs,*X,*dLCda;
+    double *LCout,*dLCdv,*rhs,*X,*dLCda,*dLCdp;
     LCout=calloc(nLCtotal,sizeof(double));
     dLCdv=calloc((nLCtotal)*(3*nvert+3),sizeof(double));
     dLCda=calloc((nLCtotal)*(alength+3),sizeof(double));
@@ -238,7 +239,14 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                 Mask[Chordoffsetcolpos+INI_FREE_CHORD_LIST[k]-1]=0;
         }
        
-        
+        if(INI_PHASE_MASK!=NULL)
+        {
+            Mask[nJcols-4]=INI_PHASE_MASK[0];
+            Mask[nJcols-3]=INI_PHASE_MASK[1];
+            Mask[nJcols-2]=INI_PHASE_MASK[2];
+            Mask[nJcols-1]=INI_PHASE_MASK[3];
+            
+        }
         mask_matrix(nJcols,Mask,&Mask_Matrix,&nMask);
         MJTJ=calloc(nMask*nMask,sizeof(double));
         MJTJpd=calloc(nMask*nMask,sizeof(double));
@@ -261,7 +269,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
     double chisq2;
     double LCfit=0;
      double dec[2]={1,1};
-    double threshold=0.1;
+    double threshold=INI_MINDEC;
     int count=0;
     int DONE=0;
 //     double *D=calloc(nvert*nvert,sizeof(double));
@@ -271,7 +279,8 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
     D1=calloc((3*nvert+3)*(alength+3),sizeof(double));
     D2=calloc((3*nvert+3+nAOoffsets)*(alength+3+nAOoffsets),sizeof(double));
    // NUM_OF_ROUNDS=1;
-  
+  if(USE_CALIB==1)
+        dLCdp=calloc(nLCtotal*4,sizeof(double));
     for(int k=0;k<NUM_OF_ROUNDS;k++)
     {
         if(decreased==1)
@@ -284,7 +293,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
 //          write_matrix_file("/tmp/a.txt",a,1,alength);
 //           write_matrix_file("/tmp/D1.txt",D1,3*nvert+3,alength+3);
 //           write_matrix_file("/tmp/D2.txt",D2,3*nvert+3+nAOoffsets,alength+3+nAOoffsets);
-        calculate_lcs(tlist,vlist,nfac,nvert,angles,LC,NULL,nvert,nvert,LCout,dLCdv,NULL,NULL,NULL,NULL,NULL,1);
+        calculate_lcs(tlist,vlist,nfac,nvert,angles,LC,NULL,nvert,nvert,LCout,dLCdv,NULL,NULL,NULL,params,dLCdp,1);
 //          write_matrix_file("/tmp/LCout.txt",LCout,1,nLCtotal);
 //          write_matrix_file("/tmp/dLCdv.txt",dLCdv,nLCtotal,3*nvert+3);
        //Convert to derivative matrix wrt a
@@ -321,9 +330,10 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                     mult_with_cons(dChordoffset,nOCtotal,nChordoffsets,-ocW);
                     mult_with_cons(dvectorreg,1,nChordoffsets,-INI_CHRDW);
                     vectorreg*=INI_CHRDW;
-                    S[Slength-1]=vectorreg; //NOTE ABSOLUTE ADDRESS HERE. FIX!
+                    S[regpos+3]=vectorreg; //NOTE ABSOLUTE ADDRESS HERE. FIX!
                     set_submatrix(J,Slength,nJcols,dChordoffset,nOCtotal,nChordoffsets,OCrowpos,Chordoffsetcolpos); //Chord offsets
-                    set_submatrix(J,Slength,nJcols,dvectorreg,1,nChordoffsets,Slength-1,Chordoffsetcolpos);
+                    set_submatrix(J,Slength,nJcols,dvectorreg,1,nChordoffsets,regpos+3,Chordoffsetcolpos);
+                  
                 }
                     
             else
@@ -396,8 +406,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
        
         matrix_transprod(S,Slength,1,&chisq);
        matrix_transprod(LCout,nLCtotal,1,&LCfit);
-        printf("round: %d chisq: %f LCfit: %f AOfit: %f OCfit: %f RDfit: %f Convex reg: %f Octantoid reg: %f Dihedral reg: %f\n",k,chisq,LCfit,AOfit,OCfit,RDfit,pow(CRres,2),pow(Ores,2),pow(ANGres,2));
-        printf("vector reg: %f\n",vectorreg);
+        printf("Round: %d chisq: %f LCfit: %f AOfit: %f OCfit: %f RDfit: %f Convex reg: %f Octantoid reg: %f Dihedral reg: %f\n",k,chisq,LCfit,AOfit,OCfit,RDfit,pow(CRres,2),pow(Ores,2),pow(ANGres,2)); 
        //printf("scale: %f %f\n",AOscale[0],AOscale[1]);
         //Construct Jacobian matrix
         
@@ -407,7 +416,11 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         set_submatrix(J,Slength,nJcols,dOda,1,alength,regpos+1,0);
         set_submatrix(J,Slength,nJcols,dANGda,1,alength,regpos+2,0);
         
-            
+           if(USE_CALIB==1)
+            {
+                mult_with_cons(dLCdp,nLCtotal,4,lcW);
+                set_submatrix(J,Slength,nJcols,dLCdp,nLCtotal,4,0,nJcols-4);
+            } 
        
          // write_matrix_file("/tmp/S.txt",S,1,Slength);
          // write_matrix_file("/tmp/J.txt",J,Slength,nJcols);
@@ -465,10 +478,10 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
        
       if(USE_CALIB==1)
         {
-            params2[0]=params[0]+X[nJcols-3];
-            params2[1]=params[1]+X[nJcols-2];
-            params2[2]=params[2]+X[nJcols-1];
-            params2[3]=params[3];
+            params2[0]=params[0]+X[nJcols-4];
+            params2[1]=params[1]+X[nJcols-3];
+            params2[2]=params[2]+X[nJcols-2];
+            params2[3]=params[3]+X[nJcols-1];
         }
          if(INI_HAVE_RD)
         {
@@ -482,7 +495,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         octantoid_to_trimesh(a2,INI_LMAX,INI_NROWS,tlist,vlist2,D1,3);
        
         
-        calculate_lcs(tlist,vlist2,nfac,nvert,angles2,LC,NULL,nvertn,nvert,LCout,dLCdv,NULL,NULL,NULL,NULL,NULL,0);
+        calculate_lcs(tlist,vlist2,nfac,nvert,angles2,LC,NULL,nvertn,nvert,LCout,dLCdv,NULL,NULL,NULL,params2,dLCdp,0);
         if(INI_HAVE_AO)
         {
             Calculate_AOs(tlist,vlist2,nfac,nvert,angles2,AO,AOoffset2,NULL,nvertn,nvert,NULL,AOscale2,AOout,AOdv,NULL,0);
@@ -497,7 +510,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
             if(INI_FREE_CHORD_NMR>0)
             {
                 vector_regularization(Chordoffset2,nChordoffsets,&vectorreg,dvectorreg);
-                S[Slength-1]=INI_CHRDW*vectorreg;
+                S[regpos+3]=INI_CHRDW*vectorreg;
             }
         }
         if(INI_HAVE_RD)
@@ -546,7 +559,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                     memcpy(Chordoffset,Chordoffset2,sizeof(double)*(nChordoffsets));
            }
            if(USE_CALIB==1)
-                memcpy(params,params2,3*sizeof(double));
+                memcpy(params,params2,4*sizeof(double));
            if(INI_HAVE_RD)
             {
                 memcpy(RDoffset,RDoffset2,sizeof(double)*(nRDoffsets));
@@ -557,13 +570,13 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
            angles[0]=angles2[0];
            angles[1]=angles2[1];
            angles[2]=angles2[2];
-           lambda=0.1*lambda;
+           lambda=lambda/INI_LAMBDAINC;
            zero_array(J,Slength*nJcols);
            zero_array(S,Slength);
        }
        else
        {
-           lambda=10*lambda;
+           lambda=INI_LAMBDAINC*lambda;
            decreased=0;
           
     }
@@ -572,7 +585,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
             printf("Two previous optimization steps below threshold, stopping optimization loop.\n");
             DONE=1;
         }
-        if(lambda>1e4)
+        if(lambda>INI_LAMBDAMAX)
             DONE=1;
     if(k==NUM_OF_ROUNDS-1 || DONE==1)
     {
@@ -614,6 +627,13 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
             fprintf(stderr,"Cannot open %s\n",OUT_PARAM_FILE);
             printf("Angles: %.4f %.4f %.8f\n",90-angles[0]*180/PI,angles[1]*180/PI,24*2*PI/angles[2]);
         }
+        
+            if(params!=NULL)
+            {
+            printf("Phase parameters: \n");
+                print_matrix(params,1,4);
+            }
+            
         if(OUT_SHAPE_PARAM_FILE!=NULL)
             write_matrix_file(OUT_SHAPE_PARAM_FILE,a,1,alength);
         return;
