@@ -42,7 +42,10 @@ Matti Viikinkoski (matti.viikinkoski@gmail.com)
 - Added support for occultation chord offsets
 - Added support for optimizing occultation chord offsets
 
+####23.7.2016
+- Added support for calibrated lightcurves
+
 ####TODO
-- Albedo variation
-- Calibrated lightcurves
+- Documentation
+- Albedo variegation
 - Hapke scattering law

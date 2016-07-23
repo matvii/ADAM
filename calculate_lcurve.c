@@ -4,11 +4,12 @@
 double phase_function(double *E,double *E0,double *params,double *dpdp);  
 void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *angles,double *Eo,double *E0o,int nE,double *TIME,double *bright,double *dbrightx,double *dbrighty,double *dbrightz,double *dbrightb,double *dbrightl,double *dbrighto,double *dbrightp,double *A,double *Alimit,double *dA,int rel,double *params)
 {
-  
+   
   double *normal,*centroid,*E,*E0;
   double phase,dphase[3];
  double la=0;
  double ha=1; /*These are the albedo limits*/
+ double alb_term=0;
   double *dSx,*dSy,*dSz;
   int albedo=0;
   normal=malloc(numfac*3*sizeof(double));
@@ -36,9 +37,9 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
   double *tb;
   
   double c=0.1;
-  if(rel==0 && params!=NULL)
+  if(params!=NULL)
       c=params[3];
-  
+
   double In,dIx1,dIx2,dIx3,dIy1,dIy2,dIy3,dIz1,dIz2,dIz3;
   double x1,y1,z1,x2,y2,z2,x3,y3,z3;
   double v1[3],v2[3],v3[3],cv[3],normc;
@@ -216,8 +217,18 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
     
     for(int e=0;e<nE;e++)
     {
-     
-      
+        for(int i=0;i<3;i++)
+        {
+        dir[i]=E[3*e+i];
+	  dir0[i]=E0[3*e+i];
+        }
+       if(params!=NULL)
+        {
+            phase=phase_function(dir,dir0,params,dphase);
+            
+        }
+        else
+            phase=1;
       
       rotate(beta,lambda,omega,omega0,TIME[e],M,dMb,dMl,dMo);
       for(int j=0;j<numfac;j++)
@@ -227,8 +238,7 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
 	
 	for(int i=0;i<3;i++)
 	{
-	  dir[i]=E[3*e+i];
-	  dir0[i]=E0[3*e+i];
+	  
 	  n[i]=normal[3*j+i];
 	  dnx1[i]=dnormalx1[3*j+i];
 	  dnx2[i]=dnormalx2[3*j+i];
@@ -298,31 +308,32 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
 	mu=DOT(dir,n);
 	mu0=DOT(dir0,n);
 	/*Brightness*/
-        if(rel==0)
-        {
-            phase=phase_function(dir,dir0,params,dphase);
-        }
-        else
-            phase=1;
+       
         
         if(albedo==0)
+        {
             alb=0;
+            alb_term=1;
+        }
         else
         {
             alb=A[j];
             dSdalb[e*numfac+j]=phase*(ha-la)*exp(alb)/pow(exp(alb)+1,2)*mu*mu0*(1/(mu+mu0)+c)*area[j];
+            alb_term=(la+(ha-la)*exp(alb)/(exp(alb)+1));
         }
-	In=(la+(ha-la)*exp(alb)/(exp(alb)+1))*mu*mu0*(1/(mu+mu0)+c);
+	In=alb_term*mu*mu0*(1/(mu+mu0)+c);
 	tb[e]=tb[e]+phase*In*area[j];
+       //printf("Facet %d: alb_term: %f Area: %f  mu: %f mu0: %f phase: %f Total: %f\n",j+1,alb_term,area[j],mu,mu0,phase,phase*In*area[j]);
 	//Derivatives wrt phase params
-        if(rel==0)
+        if(params!=NULL)
         {
-            dbrightp[e*numvert]=dphase[0]*In*area[j];
-            dbrightp[e*numvert+1]=dphase[1]*In*area[j];
-            dbrightp[e*numvert+3]=dphase[2]*In*area[j];
+            dbrightp[e*4]=dbrightp[e*4]+dphase[0]*In*area[j];
+            dbrightp[e*4+1]=dbrightp[e*4+1]+dphase[1]*In*area[j];
+            dbrightp[e*4+2]=dbrightp[e*4+2]+dphase[2]*In*area[j];
+            dbrightp[e*4+3]=dbrightp[e*4+3]+alb_term*mu*mu0*phase*area[j];
         }
-	dt1=phase*(la+(ha-la)*exp(alb)/(exp(alb)+1))*(pow(mu/(mu+mu0),2)+c*mu);
-	dt2=phase*(la+(ha-la)*exp(alb)/(exp(alb)+1))*(pow(mu0/(mu+mu0),2)+c*mu0);
+	dt1=phase*alb_term*(pow(mu/(mu+mu0),2)+c*mu);
+	dt2=phase*alb_term*(pow(mu0/(mu+mu0),2)+c*mu0);
 	
 	dIx1=dt1*dmu0x1+dt2*dmux1;
 	dIx2=dt1*dmu0x2+dt2*dmux2;
@@ -337,17 +348,17 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
 	dIz3=dt1*dmu0z3+dt2*dmuz3;
 	//Derivative wrt vertices
 	
-	dSx[e*numvert+vert1]=dSx[e*numvert+vert1]+In*dAx1+dIx1*area[j];
-	dSx[e*numvert+vert2]=dSx[e*numvert+vert2]+In*dAx2+dIx2*area[j];
-	dSx[e*numvert+vert3]=dSx[e*numvert+vert3]+In*dAx3+dIx3*area[j];
+	dSx[e*numvert+vert1]=dSx[e*numvert+vert1]+phase*In*dAx1+dIx1*area[j];
+	dSx[e*numvert+vert2]=dSx[e*numvert+vert2]+phase*In*dAx2+dIx2*area[j];
+	dSx[e*numvert+vert3]=dSx[e*numvert+vert3]+phase*In*dAx3+dIx3*area[j];
 	
-	dSy[e*numvert+vert1]=dSy[e*numvert+vert1]+In*dAy1+dIy1*area[j];
-	dSy[e*numvert+vert2]=dSy[e*numvert+vert2]+In*dAy2+dIy2*area[j];
-	dSy[e*numvert+vert3]=dSy[e*numvert+vert3]+In*dAy3+dIy3*area[j];
+	dSy[e*numvert+vert1]=dSy[e*numvert+vert1]+phase*In*dAy1+dIy1*area[j];
+	dSy[e*numvert+vert2]=dSy[e*numvert+vert2]+phase*In*dAy2+dIy2*area[j];
+	dSy[e*numvert+vert3]=dSy[e*numvert+vert3]+phase*In*dAy3+dIy3*area[j];
 	
-	dSz[e*numvert+vert1]=dSz[e*numvert+vert1]+In*dAz1+dIz1*area[j];
-	dSz[e*numvert+vert2]=dSz[e*numvert+vert2]+In*dAz2+dIz2*area[j];
-	dSz[e*numvert+vert3]=dSz[e*numvert+vert3]+In*dAz3+dIz3*area[j];
+	dSz[e*numvert+vert1]=dSz[e*numvert+vert1]+phase*In*dAz1+dIz1*area[j];
+	dSz[e*numvert+vert2]=dSz[e*numvert+vert2]+phase*In*dAz2+dIz2*area[j];
+	dSz[e*numvert+vert3]=dSz[e*numvert+vert3]+phase*In*dAz3+dIz3*area[j];
 	
 	
 	mult_vector(dMb,&(Eo[3*e]),vect);
@@ -368,8 +379,9 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
 	dBo[e]=dBo[e]+area[j]*(dt1*du0o+dt2*duo);
 	
        } /*End of j, numfac*/
+       
       } /*End of e, nE*/
-   
+   double sum_paramc=0;
      double sumbright2=0;
       sumbright=sum_vector(tb,nE);
       sumbright2=pow(sumbright,2);
@@ -382,6 +394,7 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
 	sbeta=sbeta+dBb[j];
 	slambda=slambda+dBl[j];
 	somega=somega+dBo[j];
+        sum_paramc+=dbrightp[j*4+3];
       }
       
       
@@ -412,6 +425,13 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
 	dbrightb[i]=nE*(sumbright*dBb[i]-tb[i]*sbeta)/sumbright2;
 	dbrightl[i]=nE*(sumbright*dBl[i]-tb[i]*slambda)/sumbright2;
 	dbrighto[i]=nE*(sumbright*dBo[i]-tb[i]*somega)/sumbright2;
+        
+      }
+      if(params!=NULL)
+          for(int j=0;j<nE;j++)
+        {
+            
+            dbrightp[j*4+3]=nE*(dbrightp[j*4+3]*sumbright-tb[j]*sum_paramc)/pow(sumbright,2);
       }
       if(albedo==1)
       {
@@ -432,9 +452,9 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
         memcpy(dbrightx,dSx,sizeof(double)*nE*numvert);
         memcpy(dbrighty,dSy,sizeof(double)*nE*numvert);
         memcpy(dbrightz,dSz,sizeof(double)*nE*numvert);
-        memcpy(dbrightb,dBb,sizeof(double)*nE*3);
-        memcpy(dbrightl,dBl,sizeof(double)*nE*3);
-        memcpy(dbrighto,dBo,sizeof(double)*nE*3);
+        memcpy(dbrightb,dBb,sizeof(double)*nE);
+        memcpy(dbrightl,dBl,sizeof(double)*nE);
+        memcpy(dbrighto,dBo,sizeof(double)*nE);
         if(albedo==1)
             memcpy(dA,dSdalb,sizeof(double)*numfac*nE);
     }

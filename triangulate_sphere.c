@@ -8,6 +8,9 @@ void triangulate_sphere(int nrows,double *t,double *f,int *ifp)
      * t and f are 4*pow(nrows,2)+2 arrays
      * ifp is 8*pow(nrows,2) x 3 matrix
      */
+    /*
+     * Based on convexinv by Kaasalainen & Durech
+     */
     double dth=PI/(2*nrows);
     double dph;
     int k=0;

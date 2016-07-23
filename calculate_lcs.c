@@ -3,6 +3,7 @@
 #include"structs.h"
 #include "num_of_threads.h"
 #include<omp.h>
+#include"globals.h"
 void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *angles,double *Eo,double *E0o,int nE,double *TIME,double *bright,double *dbrightx,double *dbrighty,double *dbrightz,double *dbrightb,double *dbrightl,double *dbrighto,double *dbrightp,double *A,double *Alimit,double *dA,int rel,double* params);
 
 void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LCstruct *LC,double *D,int dm,int dn,double *LCout,double *dLCdv,double *Albedo,double *Alimit,double *dAlb,double *params,double *dparams,int deriv)
@@ -40,7 +41,9 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
     zero_array(dLCdv,ntpoints*(3*nvertf+3));
      if(Albedo!=NULL)
          zero_array(dAlb,ntpoints*nfac);
-        omp_set_num_threads(NUM_THREADS);
+     if(dparams!=NULL)
+         zero_array(dparams,ntpoints*4);
+       omp_set_num_threads(NUM_THREADS);
     #pragma omp parallel for
     for(int j=0;j<nlc;j++)
     {
@@ -60,7 +63,7 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
         double *dbrightp;
         double *dA;
         double *lcs;
-        
+        double clcw=1;
         bright=calloc(pinlc,sizeof(double));
         dbrightx=calloc(pinlc*nvertf,sizeof(double));
         dbrighty=calloc(pinlc*nvertf,sizeof(double));
@@ -68,7 +71,7 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
         dbrightb=calloc(pinlc,sizeof(double));
         dbrightl=calloc(pinlc,sizeof(double));
         dbrighto=calloc(pinlc,sizeof(double));
-        dbrightp=calloc(pinlc*3,sizeof(double));
+        dbrightp=calloc(pinlc*4,sizeof(double));
         if(Albedo!=NULL)
             dA=calloc(pinlc*nfac,sizeof(double)); //If no albedo, then no albedo derivatives
             E=LC->E[j];
@@ -98,8 +101,16 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
         /*Copy stuff to correct places*/
         //  printf("\n dLdx at %d, cind is %d,ntpoints is %d\n",j,cind,ntpoints);
         // print_matrix(dbrightx,pinlc,nvertf);
+        if(params!=NULL && LC->rel[j]==0)
+        {
+            clcw=INI_CALIBLCW;
+            mult_with_cons(dbrightp,pinlc,4,clcw);
+        }
+        else
+            clcw=1.0;
         for(int k=0;k<pinlc;k++)
-            LCout[k+cumpoints[j]]=lcs[k]-bright[k];
+            LCout[k+cumpoints[j]]=clcw*(lcs[k]-bright[k]);
+       
         free(bright);
         if(deriv==1)
         {
@@ -125,8 +136,8 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
                 set_submatrix(dAlb,ntpoints,nfac,dA,pinlc,nfac,cind,0);
                 free(dA);
             }
-            if(LC->calib==1)
-                set_submatrix(dparams,ntpoints,3,dbrightp,pinlc,3,cind,0);
+            if(params!=NULL && dparams!=NULL)
+                set_submatrix(dparams,ntpoints,4,dbrightp,pinlc,4,cind,0);
             
         }
         free(dbrightx);
@@ -136,9 +147,10 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
         free(dbrightl);
         free(dbrighto);
         free(dbrightp);
+        
     }
     free(cumpoints);
-    
+  
 }
 /*
 int main()
