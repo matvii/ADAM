@@ -201,11 +201,11 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
     int padding=3+nAOoffsets; 
     JTJ=calloc((nJcols)*(nJcols),sizeof(double));
     JTJpd=calloc((nJcols)*(nJcols),sizeof(double));
-    int OCoffsetcolpos=alength+3+ncalib+nAOoffsets+nAOscale;
-    int Chordoffsetcolpos=alength+3+ncalib+nAOoffsets+nAOscale+nOCoffsets;
+    int OCoffsetcolpos=alength+3+nAOoffsets+nAOscale;
+    int Chordoffsetcolpos=alength+3+nAOoffsets+nAOscale+nOCoffsets;
     int OCrowpos=nLCtotal+nAOtotal;
-    int RDoffsetcolpos=alength+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets;
-    int RDscalecolpos=alength+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets;
+    int RDoffsetcolpos=alength+3+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets;
+    int RDscalecolpos=alength+3+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets;
     int RDrowpos=nLCtotal+nAOtotal+nOCtotal;
     int regpos=nLCtotal+nAOtotal+nOCtotal+nRDtotal;
     double *LCout,*dLCdv,*rhs,*X,*dLCda,*dLCdp;

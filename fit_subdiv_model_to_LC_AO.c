@@ -190,11 +190,11 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
    
     Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+nfacn+nvectorreg; //LC points+AO points+OC points+RD points+convex reg+dihedral reg+angle reg+[vector reg for free chords]
     int nJcols=3*nvert+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp; //shape params+offset params and scale
-    int OCoffsetcolpos=3*nvert+3+ncalib+nAOoffsets+nAOscale;
-    int Chordoffsetcolpos=3*nvert+3+ncalib+nAOoffsets+nAOscale+nOCoffsets;
+    int OCoffsetcolpos=3*nvert+3+nAOoffsets+nAOscale;
+    int Chordoffsetcolpos=3*nvert+3+nAOoffsets+nAOscale+nOCoffsets;
     int OCrowpos=nLCtotal+nAOtotal;
-    int RDoffsetcolpos=3*nvert+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets;
-    int RDscalecolpos=3*nvert+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets;
+    int RDoffsetcolpos=3*nvert+3+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets;
+    int RDscalecolpos=3*nvert+3+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets;
     int RDrowpos=nLCtotal+nAOtotal+nOCtotal;
     
     int regpos=nLCtotal+nAOtotal+nOCtotal+nRDtotal;
