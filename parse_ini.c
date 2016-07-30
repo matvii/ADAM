@@ -68,6 +68,12 @@ int INI_FREE_CHORD_NMR=0;
 int INI_FIX_SHAPE=0;
 int INI_FIX_ANGLES=0;
 int INI_LC_ARE_RELATIVE=0;
+int INI_FIT_ALBEDO=0;
+double INI_ALBREGW=1;
+double INI_ALBEDO_MAX=1;
+double INI_ALBEDO_MIN=0;
+char *INI_WRITE_STATE_FILE=NULL;
+char *INI_ALBEDO_OUT_FILE=NULL;
 int parse_ini(char *filename)
 {
     char *ephmfile;
@@ -179,6 +185,8 @@ int parse_ini(char *filename)
     INI_CALIBLCW=atof(s);
     s=iniparser_getstring(ini,"Optimization:ChordWeight","1");
     INI_CHRDW=atof(s);
+    s=iniparser_getstring(ini,"Optimization:AlbRegWeight","1");
+    INI_ALBREGW=atof(s);
     //Parse Data
     s=iniparser_getstring(ini,"Data:UseLC","1");
     INI_HAVE_LC=atoi(s);
@@ -230,7 +238,12 @@ int parse_ini(char *filename)
         fprintf(stderr,"There are calibrated lightcurves, but phase params are not set. Either set AllLCRelative=1 or PhaseParams=...\n");
         exit(1);
     }
-    
+    s=iniparser_getstring(ini,"LC:FitAlbedo","0");
+    INI_FIT_ALBEDO=atoi(s);
+    s=iniparser_getstring(ini,"LC:AlbedoMax","1");
+    INI_ALBEDO_MAX=atof(s);
+    s=iniparser_getstring(ini,"LC:AlbedoMin","0");
+    INI_ALBEDO_MIN=atof(s);
     
     //If AO data exists, read the images
     char **AOfiles;
@@ -284,7 +297,18 @@ int parse_ini(char *filename)
     OUT_SHAPE_PARAM_FILE=calloc(strlen(s)+1,sizeof(char));
     strcpy(OUT_SHAPE_PARAM_FILE,s);
     }
-    
+    s=iniparser_getstring(ini,"Output:StateFile",NULL);
+    if(s!=NULL)
+    {
+        INI_WRITE_STATE_FILE=calloc(strlen(s)+1,sizeof(char));
+        strcpy(INI_WRITE_STATE_FILE,s);
+    }
+    s=iniparser_getstring(ini,"Output:AlbedoFile",NULL);
+    if(s!=NULL)
+    {
+        INI_ALBEDO_OUT_FILE=calloc(strlen(s)+1,sizeof(char));
+        strcpy(INI_ALBEDO_OUT_FILE,s);
+    }
     
     if(nAO>0)
     {

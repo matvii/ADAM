@@ -9,6 +9,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     //First initialize the initial shape
     int *tlist,*tlistn,nfac,nvert,nfacn,nvertn;
     double *vlist,*vlist2,*vlistn,*D;
+    int nLCtotal=LC->ntotal;
     if(INI_SHAPE_FILE!=NULL)
         read_shape(INI_SHAPE_FILE,&tlist,&vlist,&nfac,&nvert,0);
     else
@@ -44,12 +45,34 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     if(USE_CALIB==1)
         ncalib=4;
     //This is for calibrated lightcurves end
+    //LC albedo variegation
+    int nAlbedo=0;
+    double *eAlbedo=NULL,*eAlbedo2=NULL;
+    double *dLCdalb=NULL;
+    double *Alblimits=NULL;
+    double *Albreg=NULL,*dAlbreg=NULL;
+    int nAlbreg=0;
+    if(INI_FIT_ALBEDO==1)
+    {
+        nAlbedo=nfacn;
+        eAlbedo=calloc(nfacn,sizeof(double));
+        eAlbedo2=calloc(nfacn,sizeof(double));
+        dLCdalb=calloc(nLCtotal*nfacn,sizeof(double));
+        Alblimits=calloc(2,sizeof(double));
+        Alblimits[0]=INI_ALBEDO_MIN;
+        Alblimits[1]=INI_ALBEDO_MAX;
+        Albreg=calloc(nfacn,sizeof(double));
+        dAlbreg=calloc(nfacn*nfacn,sizeof(double));
+        nAlbreg=nfacn;
+    }
+        
+        
     int nAOtotal=0;
     int nAOcols=0;
     int nAO=0;
     int nAOoffsets=0;
     int nAOscale=0;
-    double *AOoffset,*AOoffset2,*AOout,*AOdv,AOfit,*AOscale,*AOscale2,*AOds;
+    double *AOoffset,*AOoffset2,*AOout,*AOdv,AOfit=0,*AOscale,*AOscale2,*AOds;
     if(INI_HAVE_AO)
     {
         nAOtotal=2*(AO->ntotal);
@@ -186,19 +209,19 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     
    
     int Slength;
-    int nLCtotal=LC->ntotal;
+    
    
-    Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+nfacn+nvectorreg; //LC points+AO points+OC points+RD points+convex reg+dihedral reg+angle reg+[vector reg for free chords]
-    int nJcols=3*nvert+3+ncalib+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp; //shape params+offset params and scale
+    Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+nfacn+nvectorreg+nAlbreg; //LC points+AO points+OC points+RD points+convex reg+dihedral reg+area reg+[vector reg for free chords]+albedo reg
+    int nJcols=3*nvert+3+ncalib+nAlbedo+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp; //shape params+offset params and scale
     int OCoffsetcolpos=3*nvert+3+nAOoffsets+nAOscale;
     int Chordoffsetcolpos=3*nvert+3+nAOoffsets+nAOscale+nOCoffsets;
     int OCrowpos=nLCtotal+nAOtotal;
     int RDoffsetcolpos=3*nvert+3+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets;
     int RDscalecolpos=3*nvert+3+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets;
     int RDrowpos=nLCtotal+nAOtotal+nOCtotal;
-    
+    int Albcolpos=3*nvert+3+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp;
     int regpos=nLCtotal+nAOtotal+nOCtotal+nRDtotal;
-    
+    int Albregpos=regpos+1+1+nfacn+nvectorreg;
     S=calloc(Slength,sizeof(double)); 
     J=calloc(Slength*(nJcols),sizeof(double));
     
@@ -291,8 +314,8 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             Sqrt3_Subdiv(tlist,vlist,nfac,nvert,&tlistn,&vlistn,&nfacn,&nvertn,&D,INI_SD_LEVEL); //Do  subdivision. Remember to free allocated mem
             //Calculate LCs
             
-            calculate_lcs(tlistn,vlistn,nfacn,nvertn,angles,LC,D,nvertn,nvert,LCout,dLCdv,NULL,NULL,NULL,params,dLCdp,1);
-           
+            calculate_lcs(tlistn,vlistn,nfacn,nvertn,angles,LC,D,nvertn,nvert,LCout,dLCdv,eAlbedo,Alblimits,dLCdalb,params,dLCdp,1);
+          
             /////////////DEBUG////////////////////////////////
 //               write_shape_file("/tmp/Inishape.txt",tlistn,vlistn,nfacn,nvertn);
 //               write_matrix_file("/tmp/D.txt",D,nvertn,nvert);
@@ -300,6 +323,17 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
 //                      write_matrix_file("/tmp/dLCdv.txt",dLCdv,nLCtotal,3*nvert+3);
 //                      write_matrix_file("/tmp/dLCdp.txt",dLCdp,nLCtotal,4);
             ///////////DEBUG/////////////////////////////////////
+            if(INI_FIT_ALBEDO==1)
+            {
+                mult_with_cons(dLCdalb,nLCtotal,nfacn,lcW);
+                localsmooth(tlistn,vlistn,nfacn,nvertn,eAlbedo,Alblimits,Albreg,dAlbreg);
+                mult_with_cons(dAlbreg,nfacn,nfacn,-INI_ALBREGW);
+                mult_with_cons(Albreg,1,nfacn,INI_ALBREGW);
+                set_submatrix(S,1,Slength,Albreg,1,nfacn,0,Albregpos);
+                set_submatrix(J,Slength,nJcols,dLCdalb,nLCtotal,nfacn,0,Albcolpos);
+                set_submatrix(J,Slength,nJcols,dAlbreg,nfacn,nfacn,Albregpos,Albcolpos);
+            }
+                
             //AO data
             if(INI_HAVE_AO)
             {
@@ -453,9 +487,13 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 mult_with_cons(dLCdp,nLCtotal,4,lcW);
                 set_submatrix(J,Slength,nJcols,dLCdp,nLCtotal,4,0,nJcols-4);
             }
-//             write_matrix_file("/tmp/LCout.txt",LCout,1,nLCtotal);
-//                      write_matrix_file("/tmp/dLCdv.txt",dLCdv,nLCtotal,3*nvert+3);
-//                      write_matrix_file("/tmp/dLCdp.txt",dLCdp,nLCtotal,4);
+            /////////////////DEBUG////////////////////////////////////////7
+//              write_matrix_file("/tmp/LCout.txt",LCout,1,nLCtotal);
+//                       write_matrix_file("/tmp/dLCdv.txt",dLCdv,nLCtotal,3*nvert+3);
+// //                      write_matrix_file("/tmp/dLCdp.txt",dLCdp,nLCtotal,4);
+//                       write_matrix_file("/tmp/dLCdalb.txt",dLCdalb,nLCtotal,nfacn);
+//                       write_matrix_file("/tmp/dAlbreg.txt",dAlbreg,nfacn,nfacn);
+            ///////////////DEBUG////////////////////////////////////////////
             //Calculate J^TJ+lambda*J
             // matrix_transprod(J,Slength,nJcols,JTJ);
             free(tlistn);
@@ -463,8 +501,8 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             free(D);
             /////////////DEBUG////////////////////////////////
 //                        write_matrix_file("/tmp/S.txt",S,Slength,1);
-//                         write_matrix_file("/tmp/J.txt",J,Slength,nJcols);
-//                         exit(1);
+//                          write_matrix_file("/tmp/J.txt",J,Slength,nJcols);
+//                          exit(1);
             /////////////DEBUG////////////////////////////////     
             matrix_transprod(J,Slength,nJcols,JTJ);
             matrix_vectorprod(J,Slength,nJcols,S,rhs,1); //rhs=J^T*S;
@@ -487,7 +525,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         
         solve_matrix_eq(JTJpd,nJcols,rhs,X); //Solve the LM 
         }
-        
+       
         add_vector_to_vlist(vlist,X,vlist2,nvert);
         if(INI_HAVE_AO)
         {
@@ -502,7 +540,12 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 matrix_plus2(Chordoffset,1,nChordoffsets,&X[Chordoffsetcolpos],Chordoffset2);
             
         }
-        
+       
+        if(INI_FIT_ALBEDO==1)
+        {
+            for(int j=0;j<nfacn;j++)
+                eAlbedo2[j]=eAlbedo[j]+X[Albcolpos+j];
+        }
         angles2[0]=angles[0]+X[3*nvert];
         angles2[1]=angles[1]+X[3*nvert+1];
         angles2[2]=angles[2]+X[3*nvert+2];
@@ -526,7 +569,13 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         
         Sqrt3_Subdiv(tlist,vlist2,nfac,nvert,&tlistn,&vlistn,&nfacn,&nvertn,&D,INI_SD_LEVEL);
         
-        calculate_lcs(tlistn,vlistn,nfacn,nvertn,angles2,LC,D,nvertn,nvert,LCout,dLCdv,NULL,NULL,NULL,params2,dLCdp,0);
+        calculate_lcs(tlistn,vlistn,nfacn,nvertn,angles2,LC,D,nvertn,nvert,LCout,dLCdv,eAlbedo2,Alblimits,dLCdalb,params2,dLCdp,0);
+        if(INI_FIT_ALBEDO==1)
+        {
+                localsmooth(tlistn,vlistn,nfacn,nvertn,eAlbedo2,Alblimits,Albreg,dAlbreg);
+                mult_with_cons(Albreg,1,nfacn,INI_ALBREGW);
+                set_submatrix(S,1,Slength,Albreg,1,nfacn,0,Albregpos);
+        }
         if(INI_HAVE_AO)
         {
             Calculate_AOs(tlistn,vlistn,nfacn,nvertn,angles2,AO,AOoffset2,D,nvertn,nvert,INI_AO_WEIGHT,AOscale2,AOout,AOdv,NULL,0);
@@ -585,6 +634,8 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             angles[0]=angles2[0];
             angles[1]=angles2[1];
             angles[2]=angles2[2];
+            if(INI_FIT_ALBEDO==1)
+                memcpy(eAlbedo,eAlbedo2,sizeof(double)*nfacn);
             if(USE_CALIB==1)
                 memcpy(params,params2,sizeof(double)*4);
             if(INI_HAVE_AO)
@@ -660,7 +711,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 for(int j=0;j<LC->nlc;j++)
                     zero_array(LC->lcs[j],LC->nobs[j]);
                 Sqrt3_Subdiv(tlist,vlist,nfac,nvert,&tlistn,&vlistn,&nfacn,&nvertn,&D,INI_SD_LEVEL);
-                calculate_lcs(tlistn,vlistn,nfacn,nvertn,angles,LC,D,nvertn,nvert,LCout,dLCdv,NULL,NULL,NULL,params,dLCdp,0);
+                calculate_lcs(tlistn,vlistn,nfacn,nvertn,angles,LC,D,nvertn,nvert,LCout,dLCdv,eAlbedo,Alblimits,dLCdalb,params,dLCdp,0);
                 for(int j=0;j<LC->ntotal;j++)
                     fprintf(fidlc,"%f\n",-LCout[j]);
                 fclose(fidlc);
@@ -679,6 +730,93 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             if(INI_OUTPUT_AO_OFFSET!=NULL)
                 write_matrix_file(INI_OUTPUT_AO_OFFSET,AOoffset,1,nAOoffsets);
           //  print_matrix(params,1,4);
+            /*
+             * writing final state of all fitted variables to file
+             */
+            if(INI_WRITE_STATE_FILE!=NULL)
+            {
+                FILE *fp;
+                fp=fopen(INI_WRITE_STATE_FILE,"w");
+                if(fp==NULL)
+                {
+                    fprintf(stderr,"Cannot open file %s for writing the final state file\n",INI_WRITE_STATE_FILE);
+                    exit(-1);
+                }
+                //write angles
+                fprintf(fp,"#Angles:\n");
+                fprintf(fp,"%.2f %.2f %.8f %.2f\n",90-angles[0]*180/PI,angles[1]*180/PI,24*2*PI/angles[2],angles[3]*180/PI);
+                if(INI_PHASE_PARAMS!=NULL)
+                {
+                    fprintf(fp,"#Phaseparams:\n");
+                    fprintf(fp,"%.4f %.4f %.4f %.4f\n",params[0],params[1],params[2],params[3]);
+                }
+                if(INI_FIT_ALBEDO==1)
+                {
+                    fprintf(fp,"#Albedo:\n");
+                    for(int j=0;j<nfacn;j++)
+                        fprintf(fp,"%.2f ",Alblimits[0]+(Alblimits[1]-Alblimits[0])*exp(eAlbedo[j])/(exp(eAlbedo[j])+1.0));
+                  fprintf(fp,"\n");
+                }  
+                //Shape parameters
+                fprintf(fp,"#Shape:\n");
+                 fprintf(fp,"#SDlevel: %d\n",INI_SD_LEVEL);
+                 fprintf(fp,"#Params:\n");
+                for(int j=0;j<3*nfac;j++)
+                    fprintf(fp,"%d ",tlist[j]);
+                fprintf(fp,"\n");
+                for(int j=0;j<3*nvert;j++)
+                    fprintf(fp,"%.4f ",vlist[j]);
+                fprintf(fp,"\n");
+                fprintf(fp,"#Polyhedron:\n");
+                for(int j=0;j<3*nfacn;j++)
+                    fprintf(fp,"%d ",tlistn[j]);
+                fprintf(fp,"\n");
+                for(int j=0;j<3*nvertn;j++)
+                    fprintf(fp,"%.4f ",vlistn[j]);
+                 fprintf(fp,"\n");
+                if(INI_HAVE_AO)
+                {
+                fprintf(fp,"#AOoffset:\n");
+                for(int j=0;j<nAOoffsets;j++)
+                    fprintf(fp,"%.4f ",AOoffset[j]);
+                fprintf(fp,"\n");
+                fprintf(fp,"#AOscale:\n");
+                for(int j=0;j<nAOscale;j++)
+                    fprintf(fp,"%.4f ",AOscale[j]);
+                fprintf(fp,"\n");
+                }
+                if(INI_HAVE_OC)
+                {
+                    fprintf(fp,"#OCCoffset:\n");
+                    for(int j=0;j<nOCoffsets;j++)
+                        fprintf(fp,"%.4f ",OCoffset[j]);
+                    fprintf(fp,"\n");
+                    fprintf(fp,"#Chordoffset:\n");
+                    for(int j=0;j<nChordoffsets;j++)
+                        fprintf(fp,"%.4f ",Chordoffset[j]);
+                    fprintf(fp,"\n");
+                }
+                if(INI_HAVE_RD)
+                {
+                    fprintf(fp,"#RDoffset:\n");
+                    for(int j=0;j<nRDoffsets;j++)
+                        fprintf(fp,"%.4f ",RDoffset[j]);
+                    fprintf(fp,"\n");
+                    fprintf(fp,"#RDscale:\n");
+                    for(int j=0;j<nRDscale;j++)
+                        fprintf(fp,"%.4f ",RDscale[j]);
+                }
+                
+               fclose(fp); 
+            }
+            if(INI_FIT_ALBEDO==1 && INI_ALBEDO_OUT_FILE!=NULL)
+            {
+                double *falbedo=calloc(nfacn,sizeof(double));
+                for(int j=0;j<nfacn;j++)
+                    falbedo[j]=Alblimits[0]+(Alblimits[1]-Alblimits[0])*exp(eAlbedo[j])/(exp(eAlbedo[j])+1.0);
+                write_matrix_file(INI_ALBEDO_OUT_FILE,falbedo,1,nfacn);
+                free(falbedo);
+            }
             return;
         }
         free(vlistn);

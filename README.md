@@ -45,7 +45,10 @@ Matti Viikinkoski (matti.viikinkoski@gmail.com)
 ####23.7.2016
 - Added support for calibrated lightcurves
 
+####30.7.2016
+- Support for albedo variegation
+
 ####TODO
 - Documentation
-- Albedo variegation
 - Hapke scattering law
+- Integration of thermal modelling stuff into the main program

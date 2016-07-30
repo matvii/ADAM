@@ -5,6 +5,56 @@
 #include"structs.h"
 #include"utils.h"
 #include"globals.h"
+void AdjFacet(int *tlist,double *vlist,int nfac,int nvert,int *A)
+{
+    /*A is nvertxnvert matrix, facets with common edge (i1,i2) are A(i1,i2), A(i2,i1)*/
+    int i1,i2,i3;
+    for(int j=0;j<nfac;j++)
+    {
+        i1=tlist[3*j]-1;
+        i2=tlist[3*j+1]-1;
+        i3=tlist[3*j+2]-1;
+        set_elI(A,nvert,nvert,j+1,i1,i2);
+        set_elI(A,nvert,nvert,j+1,i2,i3);
+        set_elI(A,nvert,nvert,j+1,i3,i1);
+    }
+}
+void localsmooth(int *tlist,double *vlist,int nfac,int nvert,double *ealb,double *Alim,double *res,double *drda)
+{
+    /*
+     * Facet albedo should be close to neighboring facets
+     * INPUT:
+     * alb - facet  of LOG albedo values
+     * Alim - minimum and maximum albedo
+     * OUTPUT:
+     * res - nfac array
+     * drda - nfac x nfac array
+     */
+    double *alb=calloc(nfac,sizeof(double));
+    double albderiv=0;
+    for(int i=0;i<nfac;i++)
+        alb[i]=Alim[0]+(Alim[1]-Alim[0])*exp(ealb[i])/(exp(ealb[i])+1.0);
+        
+    int *Adj=calloc(nvert*nvert,sizeof(int));
+    int i1,i2,i3,n1,n2,n3;
+    AdjFacet(tlist,vlist,nfac,nvert,Adj);
+    zero_array(drda,nfac*nvert);
+    for(int j=0;j<nfac;j++)
+    {
+        i1=tlist[3*j]-1;
+        i2=tlist[3*j+1]-1;
+        i3=tlist[3*j+2]-1;
+        albderiv=(Alim[1]-Alim[0])*exp(ealb[j])/pow(exp(ealb[j])+1,2);
+        n1=get_elI(Adj,nvert,nvert,i2,i1)-1;
+        n2=get_elI(Adj,nvert,nvert,i3,i2)-1;
+        n3=get_elI(Adj,nvert,nvert,i1,i3)-1;
+        res[j]=alb[j]-(alb[n1]+alb[n2]+alb[n3])/3.0;
+        set_el(drda,nfac,nfac,albderiv,j,j);
+        set_el(drda,nfac,nfac,-1.0/3.0*albderiv,j,n1);
+        set_el(drda,nfac,nfac,-1.0/3.0*albderiv,j,n2);
+        set_el(drda,nfac,nfac,-1.0/3.0*albderiv,j,n3);
+    }
+}
 int find_index(double *vect,int n,double x)
 {
     double TOL=1e-2;
@@ -96,6 +146,8 @@ int calc_rot_frame(char *fitsfile,double *E,double *up)
     transpose(M,Mt);
     mult_mat(Mt,M1,Rot);
     mult_vector(Rot,upr,up);
+    free(head);
+    
    return 1;
 }
 void mul_cols(double *A,int m,int n,double *V)

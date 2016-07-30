@@ -1,19 +1,6 @@
 #include"utils.h"
 #include"matrix_ops.h"
-void AdjFacet(int *tlist,double *vlist,int nfac,int nvert,int *A)
-{
-    /*A is nvertxnvert matrix, facets with common edge (i1,i2) are A(i1,i2), A(i2,i1)*/
-    int i1,i2,i3;
-    for(int j=0;j<nfac;j++)
-    {
-        i1=tlist[3*j]-1;
-        i2=tlist[3*j+1]-1;
-        i3=tlist[3*j+2]-1;
-        set_elI(A,nvert,nvert,j+1,i1,i2);
-        set_elI(A,nvert,nvert,j+1,i2,i3);
-        set_elI(A,nvert,nvert,j+1,i3,i1);
-    }
-}
+
       
 void Fit_Occ(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *up,double *E,double *V0,double *TIME,double *offset,double *chords,int *type,int nchords,double *W,double *Chordoffset,double *dist,double *dx,double *dy,double *dz,double *dangles,double *dtox,double *dtoy,double* dCOdoff)
 {

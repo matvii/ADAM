@@ -74,7 +74,7 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
         dbrightp=calloc(pinlc*4,sizeof(double));
         if(Albedo!=NULL)
             dA=calloc(pinlc*nfac,sizeof(double)); //If no albedo, then no albedo derivatives
-            E=LC->E[j];
+        E=LC->E[j];
         E0=LC->E0[j];
         TIME=LC->TIME[j];
         lcs=LC->lcs[j];

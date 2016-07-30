@@ -56,7 +56,10 @@ extern LCstruct *INI_LC;
 extern OCstruct *INI_OC;
 extern RDstruct *INI_RD;
 
-
+extern int INI_FIT_ALBEDO;
+extern double INI_ALBEDO_MAX;
+extern double INI_ALBEDO_MIN;
+extern double INI_ALBREGW;
 extern int INI_FIX_SHAPE;
 extern int INI_FIX_ANGLES;
 extern int INI_MASK_SET;
@@ -65,4 +68,6 @@ extern double *INI_CHORD_OFFSET;
 extern int *INI_FREE_CHORD_LIST;
 extern int INI_FREE_CHORD_NMR;
 extern int *INI_PHASE_MASK;
+extern char *INI_WRITE_STATE_FILE;
+extern char *INI_ALBEDO_OUT_FILE;
 #endif

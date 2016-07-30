@@ -13,6 +13,8 @@
 #include<string.h>
 #include"structs.h"
 #include"wcstools-3.9.2/libwcs/fitsfile.h"
+void AdjFacet(int *tlist,double *vlist,int nfac,int nvert,int *A);
+void localsmooth(int *tlist,double *vlist,int nfac,int nvert,double *ealb,double *Alim,double *res,double *drda);
 int parse_vector(char *string,double *vec,int maxlength);
 int parse_vectorI(char *string,int *vec,int maxlength);
 void vector_regularization(double *V,int n,double *sV,double *dV);

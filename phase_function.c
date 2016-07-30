@@ -15,7 +15,7 @@ double phase_function(double *E,double *E0,double *params,double *dpdp)
     double e=exp(-a/params[1]);
     double br=1+params[0]*e+params[2]*a;
     dpdp[0]=e;
-    dpdp[1]=params[0]*e*a/pow(params[1],1);
+    dpdp[1]=params[0]*e*a/pow(params[1],2);
     dpdp[2]=a;
     return br;
 }
