@@ -518,7 +518,15 @@ int parse_ini(char *filename)
          
             
            
-        }  
+        } 
+        s=iniparser_getstring(ini,"OC:ChordWeight",NULL);
+        if(s!=NULL)
+        {
+            INI_OC_WEIGHT=calloc(INI_OC->ntotal,sizeof(double));
+            for(int l=0;l<INI_OC->ntotal;l++)
+                INI_OC_WEIGHT[l]=1.0;
+             parse_vector(s,INI_OC_WEIGHT,INI_OC->ntotal);
+        }
         s=iniparser_getstring(ini,"OC:ChordWeightFile",NULL);
         if(s!=NULL)
         {

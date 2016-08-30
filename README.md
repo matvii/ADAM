@@ -1,6 +1,6 @@
 #ADAM: All-Data Asteroid Modelling
 
-ADAM is a program for 3D shape reconstruction of asteroids from disk-resolved observations. Current version supports (relative) lightcurves, adaptive optics, occultations, and range-Doppler radar images. Raw images are used directly, boundary extraction is not needed. Source code for thermal modelling is also included, but not currently integrated into main program due to lack of available observations (Juno is currently the only one).
+ADAM is a program for 3D shape reconstruction of asteroids from disk-resolved observations. Current version supports  lightcurves, albedo variegation, adaptive optics, occultations, and range-Doppler radar images. Raw images are used directly, boundary extraction is not needed. Source code for thermal modelling is also included, but not currently integrated into main program due to lack of available observations (Juno is currently the only one).
 
 ##Required libraries
 - KissFFT (https://sourceforge.net/projects/kissfft)
@@ -48,7 +48,11 @@ Matti Viikinkoski (matti.viikinkoski@gmail.com)
 ####30.7.2016
 - Support for albedo variegation
 
+####29.8.2016
+- Documentation expanded
+- Utility program (make thermal) to calculate temperature distribution of an asteroid using FFT. Shadowing effects are taken into account.
+- Makefile for the intel compiler. ICC produces considerably faster code than the GCC. 
+
 ####TODO
-- Documentation
 - Hapke scattering law
 - Integration of thermal modelling stuff into the main program
