@@ -54,7 +54,7 @@ Matti Viikinkoski (matti.viikinkoski@gmail.com)
 - Makefile for the intel compiler. ICC produces considerably faster code than the GCC. 
 
 ####11.9.2016
-- Much improved handling of miss observation occultation chords
+- Occultations: Improved handling of negative chords
 
 
 ####TODO
