@@ -53,6 +53,10 @@ Matti Viikinkoski (matti.viikinkoski@gmail.com)
 - Utility program (make thermal) to calculate temperature distribution of an asteroid using FFT. Shadowing effects are taken into account.
 - Makefile for the intel compiler. ICC produces considerably faster code than the GCC. 
 
+####11.9.2016
+- Much improved handling of miss observation occultation chords
+
+
 ####TODO
 - Hapke scattering law
 - Integration of thermal modelling stuff into the main program
