@@ -1,6 +1,8 @@
 #include"utils.h"
 #include"matrix_ops.h"
-
+#include"globals.h"
+void find_chord_dist(int *tlist,double *vlist,int nfac,int nvert,double *offset,double *p1,double *p2,double* dist2,int* vert2,double *dddx2,double *dddy2);
+void find_chord_dist_simple(int *tlist,double *vlist,int nfac,int nvert,double *offset,double *p1,double *p2,double* dist2,int* vert2,double *dddx2,double *dddy2);
       
 void Fit_Occ(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *up,double *E,double *V0,double *TIME,double *offset,double *chords,int *type,int nchords,double *W,double *Chordoffset,double *dist,double *dx,double *dy,double *dz,double *dangles,double *dtox,double *dtoy,double* dCOdoff)
 {
@@ -27,6 +29,9 @@ void Fit_Occ(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *
     double temp4[4];
     double V[3];
     double dLx=0,dLy=0; //Chord offset
+     double nd_dist,nd_dx,nd_dy;
+     int nd_vert;
+    double ND_CHORD_WEIGHT=INI_NDCHORD_WEIGHT;
     for(int j=0;j<2*nchords;j++)
         time+=TIME[j];
     time=time/(2*nchords);
@@ -99,26 +104,31 @@ double a[2],b[2];
      find_chord(tlist,vlist2,nfac,nvert,offset,a,b,Adj,cledge,faedge,clpoint,fapoint,&inters,dclpx,dclpy,dfapx,dfapy);
      if(type[j]==-1)
      {
+         find_chord_dist(tlist,vlist2,nfac,nvert,offset,a,b,&nd_dist,&nd_vert,&nd_dx,&nd_dy);
          if(inters==1)
-         {
-           dist[4*j]=w*1e3;
-            dist[4*j+1]=w*1e3;
-            dist[4*j+2]=w*1e3;
-            dist[4*j+3]=w*1e3;
             printf("Intersection with no-detection chord %d (of %d)\n",j,nchords);
            
-         }
-         else
-         {
-         dist[4*j]=0;
+        
+         dist[4*j]=w*nd_dist*ND_CHORD_WEIGHT;
             dist[4*j+1]=0;
             dist[4*j+2]=0;
             dist[4*j+3]=0;
-         }
-         continue;
-       
-     }
+            el=ND_CHORD_WEIGHT*w*(nd_dx*mr11+nd_dy*mr21);
+            set_el(dx,4*nchords,nvert,el,4*j,nd_vert);
+            el=ND_CHORD_WEIGHT*w*(nd_dx*mr12+nd_dy*mr22);
+            set_el(dy,4*nchords,nvert,el,4*j,nd_vert);
+            el=ND_CHORD_WEIGHT*w*(nd_dx*mr13+nd_dy*mr23);
+            set_el(dz,4*nchords,nvert,el,4*j,nd_vert);
+            
+            dtox[4*j]=w*ND_CHORD_WEIGHT*(nd_dx);
+            dtoy[4*j]=w*ND_CHORD_WEIGHT*(nd_dy);
+            
+            dangles[4*j*3]=w*ND_CHORD_WEIGHT*(nd_dx*get_el(vlist2b,nvert,3,nd_vert,0)+nd_dy*get_el(vlist2b,nvert,3,nd_vert,1));
+         dangles[4*j*3+1]=w*ND_CHORD_WEIGHT*(nd_dx*get_el(vlist2l,nvert,3,nd_vert,0)+nd_dy*get_el(vlist2l,nvert,3,nd_vert,1));
+         dangles[4*j*3+2]=w*ND_CHORD_WEIGHT*(nd_dx*get_el(vlist2o,nvert,3,nd_vert,0)+nd_dy*get_el(vlist2o,nvert,3,nd_vert,1));
          
+         continue;
+     }   
      if(inters==1)
      {
          //We have check that closest point is actually closest and not farthest. In that case, switch points
@@ -265,11 +275,26 @@ double a[2],b[2];
      }
      else
      {
-        
-         dist[4*j]=w*chords[j*4];
+        find_chord_dist_simple(tlist,vlist2,nfac,nvert,offset,a,b,&nd_dist,&nd_vert,&nd_dx,&nd_dy);
+         dist[4*j]=w*chords[j*4]*(1+nd_dist);
          dist[4*j+1]=w*chords[j*4+1];
          dist[4*j+2]=w*chords[j*4+2];
          dist[4*j+3]=w*chords[j*4+3];
+         
+         el=chords[j*4]*w*(nd_dx*mr11+nd_dy*mr21);
+        set_el(dx,4*nchords,nvert,el,4*j,nd_vert);
+            el=chords[j*4]*w*(nd_dx*mr12+nd_dy*mr22);
+            set_el(dy,4*nchords,nvert,el,4*j,nd_vert);
+            el=chords[j*4]*w*(nd_dx*mr13+nd_dy*mr23);
+            set_el(dz,4*nchords,nvert,el,4*j,nd_vert);
+            
+            dtox[4*j]=w*chords[j*4]*(nd_dx);
+            dtoy[4*j]=w*chords[j*4]*(nd_dy);
+            
+            dangles[4*j*3]=w*chords[j*4]*(nd_dx*get_el(vlist2b,nvert,3,nd_vert,0)+nd_dy*get_el(vlist2b,nvert,3,nd_vert,1));
+         dangles[4*j*3+1]=w*chords[j*4]*(nd_dx*get_el(vlist2l,nvert,3,nd_vert,0)+nd_dy*get_el(vlist2l,nvert,3,nd_vert,1));
+         dangles[4*j*3+2]=w*chords[j*4]*(nd_dx*get_el(vlist2o,nvert,3,nd_vert,0)+nd_dy*get_el(vlist2o,nvert,3,nd_vert,1));
+         
      }
  }
  free(vlist2);
@@ -278,3 +303,212 @@ double a[2],b[2];
  free(vlist2o);
  free(Adj);
 }
+void find_chord_dist(int *tlist,double *vlist,int nfac,int nvert,double *offset,double *p1,double *p2,double* dist2,int* vert2,double *dddx2,double *dddy2)
+{
+    double w[2];
+    double normw;
+    double n[2];
+    double offx,offy;
+    double v[2];
+    double d=0;
+    double dist=0.0;
+    int vert=0;
+    double dddx,dddy;
+    int k=INI_LOGEXP;
+    offx=offset[0];
+    offy=offset[1];
+    double maxneg,maxpos;
+    maxneg=0;
+    maxpos=0;
+    double closeneg=1E6,closepos=1E6;
+    int closenegv=0,closeposv=0,maxnegv=0,maxposv=0;
+    /*Distance set to negative if the chord intersect polyhedron. Otherwise positive*/
+    w[0]=p2[0]-p1[0];
+    w[1]=p2[1]-p1[1];
+    normw=sqrt(w[0]*w[0]+w[1]*w[1]);
+    w[0]=w[0]/normw;
+    w[1]=w[1]/normw;
+    n[0]=-w[1];
+    n[1]=w[0];
+    
+    for(int j=0;j<nvert;j++)
+    {
+        v[0]=p1[0]-(vlist[3*j]+offx);
+        v[1]=p1[1]-(vlist[3*j+1]+offy);
+        d=v[0]*n[0]+v[1]*n[1];
+        if(d<0 && d<maxneg)
+        {
+            maxneg=d;
+            maxnegv=j;
+
+        }
+        if(d>0 && d>maxpos)
+        {
+            maxpos=d;
+            maxposv=j;
+        }
+        if(d<0 && -d<closeneg)
+        {
+            closeneg=-d;
+            closenegv=j;
+        }
+        if(d>0 && d<closepos)
+        {
+            closepos=d;
+            closeposv=j;
+        }
+    }
+    if(maxneg<0 && maxpos>0)
+    {
+        if(-maxneg<=maxpos)
+        {
+            dist=maxneg;
+            vert=maxnegv;
+            dddx=-n[0];
+            dddy=-n[1];
+        }
+        else
+        {
+            dist=-maxpos;
+            vert=maxposv;
+            dddx=n[0];
+            dddy=n[1];
+        }
+    }
+    else if(closepos<=closeneg)
+    {
+        dist=closepos;
+        vert=closeposv;
+        dddx=-n[0];
+        dddy=-n[1];
+    }
+    else
+    {
+        dist=closeneg;
+        vert=closenegv;
+        dddx=n[0];
+        dddy=n[1];
+    }
+    double tdist=dist;
+   
+   dist=1-1/(1+exp(-2*k*tdist));
+  // printf("Distance to chord: dist: %f edist: %f maxneg: %f maxpos: %f closepos: %f closeneg: %f\n",dist,tdist,maxneg,maxpos,closepos,closeneg);
+   dddx=-2*k*exp(-2*k*tdist)/pow(1+exp(-2*k*tdist),2)*dddx;
+   dddy=-2*k*exp(-2*k*tdist)/pow(1+exp(-2*k*tdist),2)*dddy;
+    *dist2=dist;
+    *vert2=vert;
+    if(isnan(dddx))
+        dddx=0;
+    if(isnan(dddy))
+        dddy=0;
+    *dddx2=dddx;
+    *dddy2=dddy;
+    
+}       
+  void find_chord_dist_simple(int *tlist,double *vlist,int nfac,int nvert,double *offset,double *p1,double *p2,double* dist2,int* vert2,double *dddx2,double *dddy2)
+{
+    double w[2];
+    double normw;
+    double n[2];
+    double offx,offy;
+    double v[2];
+    double d=0;
+    double dist=0.0;
+    int vert=0;
+    double dddx,dddy;
+    int k=INI_LOGEXP;
+    offx=offset[0];
+    offy=offset[1];
+    double maxneg,maxpos;
+    maxneg=0;
+    maxpos=0;
+    double closeneg=1E6,closepos=1E6;
+    int closenegv=0,closeposv=0,maxnegv=0,maxposv=0;
+    /*Distance set to negative if the chord intersect polyhedron. Otherwise positive*/
+    w[0]=p2[0]-p1[0];
+    w[1]=p2[1]-p1[1];
+    normw=sqrt(w[0]*w[0]+w[1]*w[1]);
+    w[0]=w[0]/normw;
+    w[1]=w[1]/normw;
+    n[0]=-w[1];
+    n[1]=w[0];
+    
+    for(int j=0;j<nvert;j++)
+    {
+        v[0]=p1[0]-(vlist[3*j]+offx);
+        v[1]=p1[1]-(vlist[3*j+1]+offy);
+        d=v[0]*n[0]+v[1]*n[1];
+        if(d<0 && d<maxneg)
+        {
+            maxneg=d;
+            maxnegv=j;
+
+        }
+        if(d>0 && d>maxpos)
+        {
+            maxpos=d;
+            maxposv=j;
+        }
+        if(d<0 && -d<closeneg)
+        {
+            closeneg=-d;
+            closenegv=j;
+        }
+        if(d>0 && d<closepos)
+        {
+            closepos=d;
+            closeposv=j;
+        }
+    }
+    if(maxneg<0 && maxpos>0)
+    {
+        if(-maxneg<=maxpos)
+        {
+            dist=maxneg;
+            vert=maxnegv;
+            dddx=-n[0];
+            dddy=-n[1];
+        }
+        else
+        {
+            dist=-maxpos;
+            vert=maxposv;
+            dddx=n[0];
+            dddy=n[1];
+        }
+    }
+    else if(closepos<=closeneg)
+    {
+        dist=closepos;
+        vert=closeposv;
+        dddx=-n[0];
+        dddy=-n[1];
+    }
+    else
+    {
+        dist=closeneg;
+        vert=closenegv;
+        dddx=n[0];
+        dddy=n[1];
+    }
+    double tdist=dist;
+   
+   dist=1/(1+exp(-2*k*tdist));
+  // printf("Distance to chord: dist: %f edist: %f maxneg: %f maxpos: %f closepos: %f closeneg: %f\n",dist,tdist,maxneg,maxpos,closepos,closeneg);
+   dddx=2*k*exp(-2*k*tdist)/pow(1+exp(-2*k*tdist),2)*dddx;
+   dddy=2*k*exp(-2*k*tdist)/pow(1+exp(-2*k*tdist),2)*dddy;
+    *dist2=dist;
+    *vert2=vert;
+    if(isnan(dddx))
+        dddx=0;
+    if(isnan(dddy))
+        dddy=0;
+    *dddx2=dddx;
+    *dddy2=dddy;
+    
+}                     
+            
+            
+        
+      
+     

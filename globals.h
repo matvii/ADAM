@@ -70,4 +70,6 @@ extern int INI_FREE_CHORD_NMR;
 extern int *INI_PHASE_MASK;
 extern char *INI_WRITE_STATE_FILE;
 extern char *INI_ALBEDO_OUT_FILE;
+extern double INI_NDCHORD_WEIGHT;
+extern int INI_LOGEXP;
 #endif

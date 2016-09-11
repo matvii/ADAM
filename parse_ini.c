@@ -72,6 +72,8 @@ int INI_FIT_ALBEDO=0;
 double INI_ALBREGW=1;
 double INI_ALBEDO_MAX=1;
 double INI_ALBEDO_MIN=0;
+double INI_NDCHORD_WEIGHT=1000;
+int INI_LOGEXP=4;
 char *INI_WRITE_STATE_FILE=NULL;
 char *INI_ALBEDO_OUT_FILE=NULL;
 int parse_ini(char *filename)
@@ -548,7 +550,12 @@ int parse_ini(char *filename)
             INI_CHORD_OFFSET=calloc(INI_OC->ntotal,sizeof(double));
             parse_vector(s,INI_CHORD_OFFSET,INI_OC->ntotal);
         }
-            
+         s=iniparser_getstring(ini,"OC:NDChordWeight",NULL);
+         if(s!=NULL)
+             INI_NDCHORD_WEIGHT=atof(s);
+         s=iniparser_getstring(ini,"OC:LogExp",NULL);
+         if(s!=NULL)
+             INI_LOGEXP=atoi(s);
         
             
             
