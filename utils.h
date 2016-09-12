@@ -13,6 +13,7 @@
 #include<string.h>
 #include"structs.h"
 #include"wcstools-3.9.2/libwcs/fitsfile.h"
+void write_obj_file(char *file,int *tlist,double *vlist,int nfac,int nvert);
 void AdjFacet(int *tlist,double *vlist,int nfac,int nvert,int *A);
 void localsmooth(int *tlist,double *vlist,int nfac,int nvert,double *ealb,double *Alim,double *res,double *drda);
 int parse_vector(char *string,double *vec,int maxlength);

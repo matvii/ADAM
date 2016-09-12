@@ -658,7 +658,13 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         }
         
       //  printf("Offsets: %f %f %f %f\n",offset[0],offset[1],offset[2],offset[3]);
+      printf("Writing shape information to %s\n",OUT_SHAPE_FILE);
         write_shape_file(OUT_SHAPE_FILE,tlist,vlist,nfac,nvert);
+        if( OUT_OBJSHAPE_FILE!=NULL)
+            {
+                printf("Writing obj shape to: %s\n",OUT_OBJSHAPE_FILE);
+                write_obj_file(OUT_OBJSHAPE_FILE,tlist,vlist,nfac,nvert);
+            }
         FILE* fid=fopen(OUT_PARAM_FILE,"w");
          FILE* fidlc=fopen(OUT_LC_FILE,"w");
          if(fidlc!=NULL)
@@ -692,7 +698,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
             write_matrix_file(OUT_SHAPE_PARAM_FILE,a,1,alength);
         if(INI_WRITE_STATE_FILE!=NULL)
             {
-                printf("Writing state file:\n");
+                printf("Writing state file %s:\n",INI_WRITE_STATE_FILE);
                 FILE *fp;
                 fp=fopen(INI_WRITE_STATE_FILE,"w");
                 if(fp==NULL)
@@ -710,7 +716,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                 }
                 if(INI_FIT_ALBEDO==1)
                 {
-                    fprintf(fp,"#Albedo:\n");
+                    fprintf(fp,"#Albedo: %d\n",nfac);
                     for(int j=0;j<nfac;j++)
                         fprintf(fp,"%.2f ",Alblimits[0]+(Alblimits[1]-Alblimits[0])*exp(eAlbedo[j])/(exp(eAlbedo[j])+1.0));
                   fprintf(fp,"\n");
@@ -718,12 +724,12 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                 //Shape parameters
                 fprintf(fp,"#Shape:\n");
                  fprintf(fp,"#LMAX: %d\n",INI_LMAX);
-                 fprintf(fp,"#Params:\n");
+                 fprintf(fp,"#Params: %d\n",alength);
                 for(int j=0;j<alength;j++)
                     fprintf(fp,"%.4f ",a[j]);
                 fprintf(fp,"\n");
                
-                fprintf(fp,"#Polyhedron:\n");
+                fprintf(fp,"#Polyhedron: %d %d\n",nfac,nvert);
                 for(int j=0;j<3*nfac;j++)
                     fprintf(fp,"%d ",tlist[j]);
                 fprintf(fp,"\n");
@@ -732,33 +738,33 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                  fprintf(fp,"\n");
                 if(INI_HAVE_AO)
                 {
-                fprintf(fp,"#AOoffset:\n");
+                fprintf(fp,"#AOoffset: %d\n",nAOoffsets);
                 for(int j=0;j<nAOoffsets;j++)
                     fprintf(fp,"%.4f ",AOoffset[j]);
                 fprintf(fp,"\n");
-                fprintf(fp,"#AOscale:\n");
+                fprintf(fp,"#AOscale: %d\n",nAOscale);
                 for(int j=0;j<nAOscale;j++)
                     fprintf(fp,"%.4f ",AOscale[j]);
                 fprintf(fp,"\n");
                 }
                 if(INI_HAVE_OC)
                 {
-                    fprintf(fp,"#OCCoffset:\n");
+                    fprintf(fp,"#OCCoffset: %d\n",nOCoffsets);
                     for(int j=0;j<nOCoffsets;j++)
                         fprintf(fp,"%.4f ",OCoffset[j]);
                     fprintf(fp,"\n");
-                    fprintf(fp,"#Chordoffset:\n");
+                    fprintf(fp,"#Chordoffset: %d\n",nChordoffsets);
                     for(int j=0;j<nChordoffsets;j++)
                         fprintf(fp,"%.4f ",Chordoffset[j]);
                     fprintf(fp,"\n");
                 }
                 if(INI_HAVE_RD)
                 {
-                    fprintf(fp,"#RDoffset:\n");
+                    fprintf(fp,"#RDoffset: %d\n",nRDoffsets);
                     for(int j=0;j<nRDoffsets;j++)
                         fprintf(fp,"%.4f ",RDoffset[j]);
                     fprintf(fp,"\n");
-                    fprintf(fp,"#RDscale:\n");
+                    fprintf(fp,"#RDscale: %d\n",nRDscale);
                     for(int j=0;j<nRDscale;j++)
                         fprintf(fp,"%.4f ",RDscale[j]);
                 }

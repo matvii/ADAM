@@ -76,6 +76,7 @@ double INI_NDCHORD_WEIGHT=1000;
 int INI_LOGEXP=4;
 char *INI_WRITE_STATE_FILE=NULL;
 char *INI_ALBEDO_OUT_FILE=NULL;
+char *OUT_OBJSHAPE_FILE=NULL;
 int parse_ini(char *filename)
 {
     char *ephmfile;
@@ -286,6 +287,12 @@ int parse_ini(char *filename)
     }
     OUT_SHAPE_FILE=calloc(strlen(s)+1,sizeof(char));
     strcpy(OUT_SHAPE_FILE,s);
+    s=iniparser_getstring(ini,"Output:ShapeObjFile",NULL);
+    if(s!=NULL)
+    {
+        OUT_OBJSHAPE_FILE=calloc(strlen(s)+1,sizeof(char));
+        strcpy(OUT_OBJSHAPE_FILE,s);
+    }
      s=iniparser_getstring(ini,"Output:AnglesFile",NULL);
     if(s==NULL)
     {

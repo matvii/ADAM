@@ -693,6 +693,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
              
              }
              Sqrt3_Subdiv(tlist,vlist,nfac,nvert,&tlistn,&vlistn,&nfacn,&nvertn,&D,INI_SD_LEVEL);
+             printf("Writing shape information to %s\n",OUT_SHAPE_FILE);
             write_shape_file(OUT_SHAPE_FILE,tlistn,vlistn,nfacn,nvertn);
             FILE* fid=fopen(OUT_PARAM_FILE,"w");
             FILE* fidlc=fopen(OUT_LC_FILE,"w");
@@ -729,12 +730,18 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 write_shape_file(OUT_SHAPE_PARAM_FILE,tlist,vlist,nfac,nvert);
             if(INI_OUTPUT_AO_OFFSET!=NULL)
                 write_matrix_file(INI_OUTPUT_AO_OFFSET,AOoffset,1,nAOoffsets);
+            if( OUT_OBJSHAPE_FILE!=NULL)
+            {
+                printf("Writing obj shape to: %s\n",OUT_OBJSHAPE_FILE);
+                write_obj_file(OUT_OBJSHAPE_FILE,tlistn,vlistn,nfacn,nvertn);
+            }
           //  print_matrix(params,1,4);
             /*
              * writing final state of all fitted variables to file
              */
             if(INI_WRITE_STATE_FILE!=NULL)
             {
+                printf("Writing all variables to %s\n",INI_WRITE_STATE_FILE);
                 FILE *fp;
                 fp=fopen(INI_WRITE_STATE_FILE,"w");
                 if(fp==NULL)
@@ -752,7 +759,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 }
                 if(INI_FIT_ALBEDO==1)
                 {
-                    fprintf(fp,"#Albedo:\n");
+                    fprintf(fp,"#Albedo: %d\n",nfacn);
                     for(int j=0;j<nfacn;j++)
                         fprintf(fp,"%.2f ",Alblimits[0]+(Alblimits[1]-Alblimits[0])*exp(eAlbedo[j])/(exp(eAlbedo[j])+1.0));
                   fprintf(fp,"\n");
@@ -760,14 +767,14 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 //Shape parameters
                 fprintf(fp,"#Shape:\n");
                  fprintf(fp,"#SDlevel: %d\n",INI_SD_LEVEL);
-                 fprintf(fp,"#Params:\n");
+                 fprintf(fp,"#Params: %d %d\n",nfac,nvert);
                 for(int j=0;j<3*nfac;j++)
                     fprintf(fp,"%d ",tlist[j]);
                 fprintf(fp,"\n");
                 for(int j=0;j<3*nvert;j++)
                     fprintf(fp,"%.4f ",vlist[j]);
                 fprintf(fp,"\n");
-                fprintf(fp,"#Polyhedron:\n");
+                fprintf(fp,"#Polyhedron: %d %d\n",nfacn,nvertn);
                 for(int j=0;j<3*nfacn;j++)
                     fprintf(fp,"%d ",tlistn[j]);
                 fprintf(fp,"\n");
@@ -776,33 +783,33 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                  fprintf(fp,"\n");
                 if(INI_HAVE_AO)
                 {
-                fprintf(fp,"#AOoffset:\n");
+                fprintf(fp,"#AOoffset: %d\n",nAOoffsets);
                 for(int j=0;j<nAOoffsets;j++)
                     fprintf(fp,"%.4f ",AOoffset[j]);
                 fprintf(fp,"\n");
-                fprintf(fp,"#AOscale:\n");
+                fprintf(fp,"#AOscale: %d\n",nAOscale);
                 for(int j=0;j<nAOscale;j++)
                     fprintf(fp,"%.4f ",AOscale[j]);
                 fprintf(fp,"\n");
                 }
                 if(INI_HAVE_OC)
                 {
-                    fprintf(fp,"#OCCoffset:\n");
+                    fprintf(fp,"#OCCoffset: %d\n",nOCoffsets);
                     for(int j=0;j<nOCoffsets;j++)
                         fprintf(fp,"%.4f ",OCoffset[j]);
                     fprintf(fp,"\n");
-                    fprintf(fp,"#Chordoffset:\n");
+                    fprintf(fp,"#Chordoffset: %d\n",nChordoffsets);
                     for(int j=0;j<nChordoffsets;j++)
                         fprintf(fp,"%.4f ",Chordoffset[j]);
                     fprintf(fp,"\n");
                 }
                 if(INI_HAVE_RD)
                 {
-                    fprintf(fp,"#RDoffset:\n");
+                    fprintf(fp,"#RDoffset: %d\n",nRDoffsets);
                     for(int j=0;j<nRDoffsets;j++)
                         fprintf(fp,"%.4f ",RDoffset[j]);
                     fprintf(fp,"\n");
-                    fprintf(fp,"#RDscale:\n");
+                    fprintf(fp,"#RDscale: %d\n",nRDscale);
                     for(int j=0;j<nRDscale;j++)
                         fprintf(fp,"%.4f ",RDscale[j]);
                 }

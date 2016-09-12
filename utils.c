@@ -622,6 +622,25 @@ void read_shape(char* filename,int **facets2,double** vertices2,int *nfac2,int *
             *facets2=facets;
             *vertices2=vertices;
 }
+void write_obj_file(char *file,int *tlist,double *vlist,int nfac,int nvert)
+{
+    /*
+     * Write shape file in obj (wavefront) format
+     */
+    FILE *fp;
+    fp=fopen(file,"w");
+    if(fp==NULL)
+    {
+        fprintf(stderr,"Cannot open file %s for writing the shape in obj format\n",file);
+        exit(-1);
+    }
+    
+    for(int j=0;j<nvert;j++)
+        fprintf(fp,"v %.4f %.4f %.4f\n",vlist[3*j],vlist[3*j+1],vlist[3*j+2]);
+    for(int j=0;j<nfac;j++)
+        fprintf(fp,"f %d %d %d\n",tlist[3*j],tlist[3*j+1],tlist[3*j+2]);
+    fclose(fp);
+}
 void Calculate_Normals(int *tlist,double *vlist,int nfac,int nvert,double *normal)
 {
   /*INPUT:
