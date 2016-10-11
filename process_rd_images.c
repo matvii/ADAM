@@ -152,7 +152,9 @@ RDstruct * process_rd_images(char **filenames,int nRD,int *x0,int *y0,int *nx,in
         norm1=NORM((E+3*index));
         
         //Correct for LT
-        RD->TIME[j]-=(norm1/cao+min_tim);
+       // RD->TIME[j]-=(norm1/cao+min_tim);
+        //NO LT CORRECTION:
+         RD->TIME[j]-=(min_tim);
         RD->distance[j]=norm1;
         for(int k=0;k<3;k++)
         {

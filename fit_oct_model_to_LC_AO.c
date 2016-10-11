@@ -387,7 +387,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         } 
         if(INI_HAVE_RD)
             {
-                Calculate_RDs(tlist,vlist,nfac,nvert,angles,RD,RDoffset,NULL,nvert,nvert,RDscale,RDexp,RDout,RDdv,RDdoff,RDdscale,RDdexp,1);
+                Calculate_RDs(tlist,vlist,nfac,nvert,angles,RD,RDoffset,NULL,nvert,nvert,INI_RD_WEIGHT,RDscale,RDexp,RDout,RDdv,RDdoff,RDdscale,RDdexp,1);
                 matrix_prod(RDdv,nRDtotal,nRDcolst,D1,nRDcols,RDda);
                 
                 mult_with_cons(RDout,1,nRDtotal,RDW);
@@ -481,6 +481,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                 matrix_prod_ATB(Mask_Matrix,nJcols,nMask,rhs,1,Mrhs);
             }
         }
+        
         if(INI_MASK_SET==1)
         {
             matrix_adddiag(MJTJ,MJTJpd,nMask,lambda);
@@ -564,7 +565,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         }
         if(INI_HAVE_RD)
         {
-          Calculate_RDs(tlist,vlist2,nfac,nvert,angles2,RD,RDoffset2,NULL,nvert,nvert,RDscale2,RDexp2,RDout,RDdv,RDdoff,RDdscale,RDdexp,0);  
+          Calculate_RDs(tlist,vlist2,nfac,nvert,angles2,RD,RDoffset2,NULL,nvert,nvert,INI_RD_WEIGHT,RDscale2,RDexp2,RDout,RDdv,RDdoff,RDdscale,RDdexp,0);  
           mult_with_cons(RDout,1,nRDtotal,RDW);
           set_submatrix(S,1,Slength,RDout,1,nRDtotal,0,RDrowpos);
         }

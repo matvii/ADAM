@@ -5,7 +5,7 @@ void Calculate_Range_Doppler(int *tlist,double *vlist,int nfac,int nvert,double 
 void Calculate_Range_Doppler_deriv(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *Eo,double TIME,double *freqx,double *freqy,int nfreq,double rfreq,double *offset,double scal,double rexpe,double * Fr,double  *Fi,double *FTdxr,double *FTdxi,double *FTdyr,double *FTdyi,double *FTdzr,double *FTdzi,double *FTdAr,double *FTdAi,double *FTdoffr,double *FTdoffi,double *FTdexpr,double *FTdexpi);
 
 
-void Calculate_RDs(int *tlist,double *vlist,int nfac,int nvert,double *angles,RDstruct  *RDs,double *offset,double *D,int dm,int dn,double *scale,double rexp,double *FT,double *FTdv,double *FTdoff,double *FTdsc,double *FTdxp,int deriv)
+void Calculate_RDs(int *tlist,double *vlist,int nfac,int nvert,double *angles,RDstruct  *RDs,double *offset,double *D,int dm,int dn,double *Weight,double *scale,double rexp,double *FT,double *FTdv,double *FTdoff,double *FTdsc,double *FTdxp,int deriv)
 {
  /*Same as the original, only exception is the inclusion of matrix D (For effective memory usage)
   */
@@ -13,6 +13,7 @@ void Calculate_RDs(int *tlist,double *vlist,int nfac,int nvert,double *angles,RD
  int D1V=0;
  int D3V=0;
  int UseScale=0;
+ int UseWeight=0;
  if(scale!=NULL)
      UseScale=1;
  int nRD;
@@ -26,7 +27,8 @@ void Calculate_RDs(int *tlist,double *vlist,int nfac,int nvert,double *angles,RD
      puts("Error: nvert is not equal dm.");
      exit(1);
  }
-  
+ if(Weight!=NULL)
+     UseWeight=1;
  
   int *nopoints,*cumpoints,ntpoints;
   nopoints=RDs->nobs; //Array, number of samples in each RD image
@@ -48,7 +50,11 @@ for(int obsind=0;obsind<nRD;obsind++)
   {
     double *FTE,*FTTIME,*FTfreqx,*FTfreqy,*FTrfreq,*datar,*datai;
     double  *FTr,*FTi;
-   
+    double W;
+    if(UseWeight==1)
+        W=Weight[obsind];
+    else
+        W=1;
     FTr=calloc(nopoints[obsind],sizeof(double));
    FTi=calloc(nopoints[obsind],sizeof(double));
    
@@ -63,8 +69,8 @@ for(int obsind=0;obsind<nRD;obsind++)
     Calculate_Range_Doppler(tlist,vlist,nfac,nvert,angles,FTE,*FTTIME,FTfreqx,FTfreqy,nopoints[obsind],*FTrfreq,offset+2*obsind,scale[obsind],rexp,FTr,FTi);
      for(int j=0;j<nopoints[obsind];j++)
   {
-    FT[j+cumpoints[obsind]]=datar[j]-FTr[j];
-    FT[j+cumpoints[obsind]+ntpoints]=datai[j]-FTi[j];
+    FT[j+cumpoints[obsind]]=W*(datar[j]-FTr[j]);
+    FT[j+cumpoints[obsind]+ntpoints]=W*(datai[j]-FTi[j]);
   }
   //return;
     free(FTr);
@@ -101,6 +107,11 @@ for(int obsind=0;obsind<nRD;obsind++)
     double *FTdxr,*FTdxi,*FTdyr,*FTdyi,*FTdzr,*FTdzi,*FTdAr,*FTdAi,*FTdoffr,*FTdoffi,*FTdexpr,*FTdexpi,*FTdxfr,*FTdxfi,*FTdyfr,*FTdyfi,*FTdzfr,*FTdzfi;
      double *FTE,*FTTIME,*FTfreqx,*FTfreqy,*FTrfreq;
     double *FTr,*FTi,*datar,*datai;
+    double W;
+    if(UseWeight==1)
+        W=Weight[obsind];
+    else
+        W=1;
    //  obsind=omp_get_thread_num();
     FTr=calloc(nopoints[obsind],sizeof(double));
     FTi=calloc(nopoints[obsind],sizeof(double));
@@ -152,8 +163,8 @@ for(int obsind=0;obsind<nRD;obsind++)
       Calculate_Range_Doppler_deriv(tlist,vlist,nfac,nvert,angles,FTE,*FTTIME,FTfreqx,FTfreqy,nopoints[obsind],*FTrfreq,offset+2*obsind,scale[obsind],rexp,FTr,FTi,FTdxr,FTdxi,FTdyr,FTdyi,FTdzr,FTdzi,FTdAr,FTdAi,FTdoffr,FTdoffi,FTdexpr,FTdexpi);
      for(int j=0;j<nopoints[obsind];j++)
   {
-    FT[j+cumpoints[obsind]]=datar[j]-FTr[j];
-    FT[j+cumpoints[obsind]+ntpoints]=datai[j]-FTi[j];
+    FT[j+cumpoints[obsind]]=W*(datar[j]-FTr[j]);
+    FT[j+cumpoints[obsind]+ntpoints]=W*(datai[j]-FTi[j]);
   }
 //    print_matrix(vlist,10,3);
 // print_matrix(angles,1,3);
@@ -161,11 +172,28 @@ for(int obsind=0;obsind<nRD;obsind++)
 // printf("Scale: %f rexp:%f TIME: %f, E: %f %f %f\n",scale[0],rexp,*FTTIME,FTE[0],FTE[1],FTE[2]);
 // write_matrix_file("/tmp/FTfreqx.txt",FTfreqx,1,nopoints[obsind]);
 // write_matrix_file("/tmp/FTfreqy.txt",FTfreqy,1,nopoints[obsind]);
-  write_matrix_file("/tmp/FTr.txt",FTr,1,nopoints[obsind]);
-   write_matrix_file("/tmp/FTi.txt",FTi,1,nopoints[obsind]);
+ // write_matrix_file("/tmp/FTr.txt",FTr,1,nopoints[obsind]);
+  // write_matrix_file("/tmp/FTi.txt",FTi,1,nopoints[obsind]);
   //Copy variables to matlab
   cind=cumpoints[obsind];
   oind=nopoints[obsind];
+  if(UseWeight==1)
+  {
+      mult_with_cons(FTdxr,oind,dn,W);
+      mult_with_cons(FTdxi,oind,dn,W);
+      mult_with_cons(FTdyr,oind,dn,W);
+      mult_with_cons(FTdyi,oind,dn,W);
+      mult_with_cons(FTdzr,oind,dn,W);
+      mult_with_cons(FTdzi,oind,dn,W);
+      mult_with_cons(FTdAr,oind,3,W);
+      mult_with_cons(FTdAi,oind,3,W);
+      mult_with_cons(FTdoffr,oind,2,W);
+      mult_with_cons(FTdoffi,oind,2,W);
+      mult_with_cons(FTr,oind,1,W);
+    mult_with_cons(FTi,oind,1,W);
+     mult_with_cons(FTdexpr,oind,1,W);
+     mult_with_cons(FTdexpi,oind,1,W);
+  }
   set_submatrix(FTdv,2*ntpoints,3*dn+3,FTdxr,oind,dn,cind,0);
   set_submatrix(FTdv,2*ntpoints,3*dn+3,FTdxi,oind,dn,cind+ntpoints,0);
   

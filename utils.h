@@ -19,7 +19,7 @@ void localsmooth(int *tlist,double *vlist,int nfac,int nvert,double *ealb,double
 int parse_vector(char *string,double *vec,int maxlength);
 int parse_vectorI(char *string,int *vec,int maxlength);
 void vector_regularization(double *V,int n,double *sV,double *dV);
-void Calculate_RDs(int *tlist,double *vlist,int nfac,int nvert,double *angles,RDstruct  *RDs,double *offset,double *D,int dm,int dn,double *scale,double rexp,double *FT,double *FTdv,double *FTdoff,double *FTdsc,double *FTdxp,int deriv);
+void Calculate_RDs(int *tlist,double *vlist,int nfac,int nvert,double *angles,RDstruct  *RDs,double *offset,double *D,int dm,int dn,double *Weight,double *scale,double rexp,double *FT,double *FTdv,double *FTdoff,double *FTdsc,double *FTdxp,int deriv);
 int read_vector_fileI(char *filename,int *buffer,int bufsize);
 void mask_matrix(int m,int *mask,double **D,int *n);
 int find_index(double *vect,int n,double x);

@@ -399,7 +399,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             }
             if(INI_HAVE_RD)
             {
-                Calculate_RDs(tlistn,vlistn,nfacn,nvertn,angles,RD,RDoffset,D,nvertn,nvert,RDscale,RDexp,RDout,RDdv,RDdoff,RDdscale,RDdexp,1);
+                Calculate_RDs(tlistn,vlistn,nfacn,nvertn,angles,RD,RDoffset,D,nvertn,nvert,INI_RD_WEIGHT,RDscale,RDexp,RDout,RDdv,RDdoff,RDdscale,RDdexp,1);
                 //printf("RDW: %f RDexp: %f\n",RDW,RDexp);
                 ///DEBUG
 //                 write_matrix_file("/tmp/RDout.txt",RDout,1,nRDtotal);
@@ -595,7 +595,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         }
         if(INI_HAVE_RD)
         {
-          Calculate_RDs(tlistn,vlistn,nfacn,nvertn,angles2,RD,RDoffset2,D,nvertn,nvert,RDscale2,RDexp2,RDout,RDdv,RDdoff,RDdscale,RDdexp,0);  
+          Calculate_RDs(tlistn,vlistn,nfacn,nvertn,angles2,RD,RDoffset2,D,nvertn,nvert,INI_RD_WEIGHT,RDscale2,RDexp2,RDout,RDdv,RDdoff,RDdscale,RDdexp,0);  
           mult_with_cons(RDout,1,nRDtotal,RDW);
           set_submatrix(S,1,Slength,RDout,1,nRDtotal,0,RDrowpos);
         }

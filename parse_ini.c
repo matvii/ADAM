@@ -569,6 +569,10 @@ int parse_ini(char *filename)
     }
         if(nRD>0)
     {
+    double* RD_iWeight=calloc(nRD,sizeof(double));
+    for(int k=0;k<nRD;k++)
+        RD_iWeight[k]=1.0;
+    int UseRDWeight=0;
     int *RDLowFreq=calloc(nRD,sizeof(int));
     RDfiles=calloc(nRD,sizeof(char*));
    
@@ -673,9 +677,19 @@ int parse_ini(char *filename)
             s=iniparser_getstring(ini,sect,NULL);
             if(s!=NULL)
             RDLowFreq[j]=atoi(s);
+            snprintf(sect,20,"RD%d:Weight",j+1);
+            s=iniparser_getstring(ini,sect,NULL);
+            if(s!=NULL)
+            {
+                UseRDWeight=1;
+                RD_iWeight[j]=atof(s);
+            }
              
        }
-        
+       if(UseRDWeight==1)
+        INI_RD_WEIGHT=RD_iWeight;
+       else
+           free(RD_iWeight);
     
     int Large=100;
     

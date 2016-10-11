@@ -28,17 +28,18 @@ def get_horizons(tn,asteroid,JD0):
     tn.write("geo\n")
   tn.read_until(":", 2.)
   tn.write("eclip\n")
-  tn.read_until(":", 2.)
+  tn.read_until("] : ", 2.)
   tn.write("JD "+sJD0+'\n')
-  tn.read_until(":", 2.)
+  tn.read_until("] : ", 2.)
   tn.write("JD "+sJD1+'\n')
-  tn.read_until(":", 2.)
+  tn.read_until(" : ", 2.)
   tn.write("1d\n")
-  tn.read_until(":", 2.)
+  tn.read_until(" : ", 2.)
   #tn.write("\n")
   tn.write("n\n")
   tn.write("\n")
   tn.write("2\n")
+  tn.write("\n")
   tn.write("\n")
   tn.write("\n")
   tn.write("\n")
@@ -61,20 +62,20 @@ def get_horizons_sun(tn,asteroid,JD0):
   tn.write("e\n")
   tn.read_until(":", 2.)
   tn.write("v\n")
-  res=tn.read_until(":", 2.)
+  res=tn.read_until(" : ", 2.)
   if res.find("Use previous"):
     tn.write("\n")
   else:
     tn.write("geo\n")
-  tn.read_until(":", 2.)
+  tn.read_until(" : ", 2.)
   tn.write("eclip\n")
-  tn.read_until(":", 2.)
+  tn.read_until(" : ", 2.)
   tn.write("JD "+sJD0+'\n')
-  tn.read_until(":", 2.)
+  tn.read_until(" : ", 2.)
   tn.write("JD "+sJD1+'\n')
-  tn.read_until(":", 2.)
+  tn.read_until(" : ", 2.)
   tn.write("1d\n")
-  tn.read_until(":", 2.)
+  tn.read_until(" : ", 2.)
   tn.write("\n")
   tn.read_until("$$SOE")
   eph=tn.read_until("$$EOE")
@@ -101,19 +102,20 @@ for f in file:
   print f
   fits_open=pyfits.open(f)
   hdu=fits_open[0]
-  time=hdu.header['MJD-OBS']+2400000.5
-  V2=get_horizons(tn,asteroid,time) #Asteroid direction
+  try:
+    obstime=hdu.header['MJD-OBS']+2400000.5
+  except:
+      obstime=hdu.header['JDMEAN']
+  V2=get_horizons(tn,asteroid,obstime) #Asteroid direction
   LT=V2[3]
   V1=get_horizons_sun(tn,10,LT) #Sun direction from Earth
   V3=V1[0:3]-V2[0:3] #Points from asteroid to Sun
   
   V2=-V2[0:3] #Points from asteroid to Earth
-  outf.write(str(time)+" ")
+  outf.write(str(obstime)+" ")
   V3.tofile(outf,sep=" ")
   outf.write(" ")
   V2.tofile(outf,sep=" ")
-  outf.write(" ")
-  LT.tofile(outf,sep=" ")
   outf.write('\n')
 tn.close()
 outf.close()
