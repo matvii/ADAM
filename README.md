@@ -56,6 +56,8 @@ Matti Viikinkoski (matti.viikinkoski@gmail.com)
 ####11.9.2016
 - Occultations: Improved handling of negative chords
 
+####29.10.2016
+- Python and Matlab utilities for displaying shapes and plotting projections and occultations. See Readme in the Utils directory.
 
 ####TODO
 - Hapke scattering law
