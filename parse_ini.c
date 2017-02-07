@@ -47,6 +47,7 @@ double INI_RW=0;
 double INI_CHRDW=0;
 double INI_CALIBLCW=0;
 double INI_LAMBDAINC=10;
+double INI_LAMBDADEC=10;
 double INI_LAMBDAMAX=1e6;
 double INI_MINDEC=0.1;
 double *INI_AO_WEIGHT=NULL;
@@ -55,8 +56,10 @@ double *INI_RD_WEIGHT=NULL;
 int *INI_PHASE_MASK=NULL;
 double INI_LAMBDA=1;
 double INI_RDEXP=0.59;
-int INI_AO_SCALING=0;
+int INI_AO_SCALING=1;
+double *INI_AO_ROTANGLE=NULL;
 double *INI_PHASE_PARAMS=NULL;
+double *INI_HAPKE=NULL;
 AOstruct *INI_AO;
 LCstruct *INI_LC;
 OCstruct *INI_OC;
@@ -77,6 +80,7 @@ int INI_LOGEXP=4;
 char *INI_WRITE_STATE_FILE=NULL;
 char *INI_ALBEDO_OUT_FILE=NULL;
 char *OUT_OBJSHAPE_FILE=NULL;
+char *INI_RESTORE_STATE=NULL;
 int parse_ini(char *filename)
 {
     char *ephmfile;
@@ -113,6 +117,12 @@ int parse_ini(char *filename)
         int slength=strlen(s);
         INI_SHAPE_FILE=calloc(slength+1,sizeof(char));
         strcpy(INI_SHAPE_FILE,s);
+    }
+    s=iniparser_getstring(ini,"Shape:RestoreState",NULL);
+    if(s!=NULL)
+    {
+        INI_RESTORE_STATE=calloc(strlen(s)+1,sizeof(char));
+        strcpy(INI_RESTORE_STATE,s);
     }
     s=iniparser_getstring(ini,"Shape:SDLevel",NULL);
     if(s!=NULL)
@@ -178,6 +188,8 @@ int parse_ini(char *filename)
     INI_LAMBDA=atof(s);
     s=iniparser_getstring(ini,"Optimization:LambdaInc","10");
     INI_LAMBDAINC=atof(s);
+    s=iniparser_getstring(ini,"Optimization:LambdaDec","10");
+    INI_LAMBDADEC=atof(s);
     s=iniparser_getstring(ini,"Optimization:LambdaMax","1000000");
     INI_LAMBDAMAX=atof(s);
     s=iniparser_getstring(ini,"Optimization:MinDec","0.1");
@@ -223,6 +235,22 @@ int parse_ini(char *filename)
         INI_PHASE_PARAMS[3]=atof(strtok(NULL,","));
        
     }
+    s=iniparser_getstring(ini,"LC:HapkeParams",NULL);
+    if(s!=NULL)
+    {
+        INI_HAPKE=calloc(5,sizeof(double));
+        INI_HAPKE[0]=atof(strtok(s,","));
+        INI_HAPKE[1]=atof(strtok(NULL,","));
+        INI_HAPKE[2]=atof(strtok(NULL,","));
+        INI_HAPKE[3]=atof(strtok(NULL,","));
+        INI_HAPKE[4]=atof(strtok(NULL,","));
+        if(INI_PHASE_PARAMS!=NULL)
+        {
+          fprintf(stderr,"Both PhaseParams and HapkeParams is set; ignoring PhaseParams.\n");
+          INI_PHASE_PARAMS=NULL;
+        }
+          
+    }
     if(INI_PHASE_PARAMS!=NULL)
     {
     s=iniparser_getstring(ini,"LC:FixedParams",NULL);
@@ -236,10 +264,10 @@ int parse_ini(char *filename)
          INI_MASK_SET=1;
     }
     }
-    if(INI_LC->calib==1 && INI_PHASE_PARAMS==NULL)
+    if(INI_LC->calib==1 && INI_PHASE_PARAMS==NULL && INI_HAPKE==NULL)
     {
-        fprintf(stderr,"There are calibrated lightcurves, but phase params are not set. Either set AllLCRelative=1 or PhaseParams=...\n");
-        exit(1);
+        fprintf(stderr,"WARNING: There are calibrated lightcurves, but phase params or Hapke are not set. Either set AllLCRelative=1 or PhaseParams=... or HapkeParams\n");
+        
     }
     s=iniparser_getstring(ini,"LC:FitAlbedo","0");
     INI_FIT_ALBEDO=atoi(s);
@@ -321,6 +349,7 @@ int parse_ini(char *filename)
     
     if(nAO>0)
     {
+    INI_AO_ROTANGLE=calloc(nAO,sizeof(double));
     int *LowFreq=calloc(nAO,sizeof(int));
     AOfiles=calloc(nAO,sizeof(char*));
     AOWeight=calloc(nAO,sizeof(double));
@@ -427,7 +456,7 @@ int parse_ini(char *filename)
                 up[3*j+1]=0.397748474527011;
                 up[3*j+2]=0.917494496447491;
             }
-            else if(strcmp(s,"Equ")==0)
+            else if(strcmp(s,"Ecc")==0)
             {
                 up[3*j+0]=0;
                 up[3*j+1]=0;
@@ -448,6 +477,10 @@ int parse_ini(char *filename)
                 up[3*j+1]=atof(strtok(NULL,","));
                 up[3*j+2]=atof(strtok(NULL,","));
             }
+            snprintf(sect,20,"AO%d:RotAngle",j+1);
+            s=iniparser_getstring(ini,sect,NULL);
+            if(s!=NULL)
+                INI_AO_ROTANGLE[j]=atof(s);
            snprintf(sect,20,"AO%d:LowFreq",j+1);
             s=iniparser_getstring(ini,sect,NULL);
             if(s!=NULL)

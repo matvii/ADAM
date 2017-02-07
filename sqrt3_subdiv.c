@@ -1,8 +1,8 @@
 #include"utils.h"
-#include<stdlib.h>
+/*#include<stdlib.h>
 #include<math.h>
 #include<stdio.h>
-#include<cblas.h>
+#include<cblas.h>*/
 #include"matrix_ops.h"
 #define PI 3.141592653589793
 void sqrt3_subdiv(int *tlist,double *vlist,int nfac,int nvert,int **tlistn2,double **vlistn2,int *nfacn2,int *nvertn2,double **D2)

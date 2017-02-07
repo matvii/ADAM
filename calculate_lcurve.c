@@ -1,5 +1,5 @@
 #include"utils.h"
-
+#include"globals.h"
 
 double phase_function(double *E,double *E0,double *params,double *dpdp);  
 void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *angles,double *Eo,double *E0o,int nE,double *TIME,double *bright,double *dbrightx,double *dbrighty,double *dbrightz,double *dbrightb,double *dbrightl,double *dbrighto,double *dbrightp,double *A,double *Alimit,double *dA,int rel,double *params)
@@ -42,7 +42,7 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
 
   double In,dIx1,dIx2,dIx3,dIy1,dIy2,dIy3,dIz1,dIz2,dIz3;
   double x1,y1,z1,x2,y2,z2,x3,y3,z3;
-  double v1[3],v2[3],v3[3],cv[3],normc;
+  double v1[3],v2[3],v3[3],cv[3],normc,Scatt;
   double dir[3],dir0[3],n[3];
   double dcx1[3],dcx2[3],dcx3[3],dcy1[3],dcy2[3],dcy3[3],dcz1[3],dcz2[3],dcz3[3];
   double dmux1,dmux2,dmux3,dmuy1,dmuy2,dmuy3,dmuz1,dmuz2,dmuz3;
@@ -222,14 +222,7 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
         dir[i]=E[3*e+i];
 	  dir0[i]=E0[3*e+i];
         }
-       if(params!=NULL)
-        {
-            phase=phase_function(dir,dir0,params,dphase);
-            
-        }
-        else
-            phase=1;
-      
+       
       rotate(beta,lambda,omega,omega0,TIME[e],M,dMb,dMl,dMo);
       for(int j=0;j<numfac;j++)
       {
@@ -308,8 +301,21 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
 	mu=DOT(dir,n);
 	mu0=DOT(dir0,n);
 	/*Brightness*/
-       
-        
+        //Phase parameters are not NULL, so use them
+       if(params!=NULL)
+        {
+            phase=phase_function(dir,dir0,params,dphase);
+            
+        }
+        else
+            phase=1;
+        //Scattering Law?
+        if(INI_HAPKE!=NULL)
+            dhapke_bright(dir,dir0,mu,mu0,INI_HAPKE,INI_HAPKE[4],&Scatt,&dt2,&dt1); //Use Hapke
+        else 
+            Scatt=mu*mu0*(1.0/(mu+mu0)+c); //Use LSL
+      
+        //Variable albedo?
         if(albedo==0)
         {
             alb=0;
@@ -318,10 +324,11 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
         else
         {
             alb=A[j];
-            dSdalb[e*numfac+j]=phase*(ha-la)*exp(alb)/pow(exp(alb)+1,2)*mu*mu0*(1/(mu+mu0)+c)*area[j];
+            dSdalb[e*numfac+j]=phase*(ha-la)*exp(alb)/pow(exp(alb)+1,2)*Scatt*area[j];
+            
             alb_term=(la+(ha-la)*exp(alb)/(exp(alb)+1));
         }
-	In=alb_term*mu*mu0*(1/(mu+mu0)+c);
+	In=alb_term*Scatt;
 	tb[e]=tb[e]+phase*In*area[j];
        //printf("Facet %d: alb_term: %f Area: %f  mu: %f mu0: %f phase: %f Total: %f\n",j+1,alb_term,area[j],mu,mu0,phase,phase*In*area[j]);
 	//Derivatives wrt phase params
@@ -332,8 +339,12 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
             dbrightp[e*4+2]=dbrightp[e*4+2]+dphase[2]*In*area[j];
             dbrightp[e*4+3]=dbrightp[e*4+3]+alb_term*mu*mu0*phase*area[j];
         }
-	dt1=phase*alb_term*(pow(mu/(mu+mu0),2)+c*mu);
-	dt2=phase*alb_term*(pow(mu0/(mu+mu0),2)+c*mu0);
+        //If not HAPKE, then calculate derivates of LSL wrt mu,mu0
+        if(INI_HAPKE==NULL)
+        {
+            dt1=phase*alb_term*(pow(mu/(mu+mu0),2)+c*mu);
+            dt2=phase*alb_term*(pow(mu0/(mu+mu0),2)+c*mu0);
+        }
 	
 	dIx1=dt1*dmu0x1+dt2*dmux1;
 	dIx2=dt1*dmu0x2+dt2*dmux2;

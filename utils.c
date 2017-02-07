@@ -404,6 +404,84 @@ void replace_col(double *M,int m,int n,int k,double *N)
     for(int j=0;j<m;j++)
         M[j*n+k]=N[j];
 }
+int read_state_file(char *filename,char *text,double *buffer,int n)
+{
+    /*
+     * In a file named filename, find a line starting with text,
+     * then read the next line into buffer
+     */ 
+    if(n==0)
+        return 0;
+     FILE *fid;
+    fid=fopen(filename,"r");
+     char delims[]=" \t\r\n\f\v,";
+     int count=0;
+     int cmp=0;
+     char *buff;
+     buff=malloc(10000);
+     if(fid==NULL)
+    {
+        perror("Error opening file in read_state_file");
+        exit(-1);
+    }
+    
+    while(fgets(buff,10000,fid)!=NULL)
+    {
+       // if(buff[0]=='#' || buff[0]==';')
+        //    continue;
+        
+        
+        if(strncmp(text,buff,strlen(text))==0)
+        {
+            fgets(buff,10000,fid);
+            count=parse_vector(buff,buffer,n);
+            break;
+            
+    }
+    }
+    return count;
+    free(buff);
+    fclose(fid);
+}
+int read_state_fileI(char *filename,char *text,int *buffer,int n)
+{
+    /*
+     * In a file named filename, find a line starting with text,
+     * then read the next line into buffer
+     */ 
+    if(n==0)
+        return 0;
+     FILE *fid;
+    fid=fopen(filename,"r");
+     char delims[]=" \t\r\n\f\v,";
+     int count=0;
+     int cmp=0;
+     char *buff;
+     buff=malloc(10000);
+     if(fid==NULL)
+    {
+        perror("Error opening file in read_state_file");
+        exit(-1);
+    }
+    
+    while(fgets(buff,10000,fid)!=NULL)
+    {
+       // if(buff[0]=='#' || buff[0]==';')
+        //    continue;
+        
+        
+        if(strncmp(text,buff,strlen(text))==0)
+        {
+            fgets(buff,10000,fid);
+            count=parse_vectorI(buff,buffer,n);
+            break;
+            
+    }
+    }
+    return count;
+    free(buff);
+    fclose(fid);
+}
 void print_submatrix(double *M,int m,int n,int k1,int l1,int k2,int l2)
 {
     /*Print submatrix of mxn matrix*/
@@ -1143,4 +1221,38 @@ int read_vector_fileI(char *filename,int *buffer,int bufsize)
         (*sV)+=pow(V[j],2);
         dV[j]=2*V[j];
     }
-} 
+}
+void calc_cam_angle(double *E,double angle,double *up,double *upr)
+{
+    /*
+     * Calculate the up vector that results from rotation the image plane
+     *by angle (degrees). 
+     *INPUT:
+     *E observer direction as seen from the world frame 
+     *up Camera up direction
+     *OUTPUT:
+     *upr: final camera up direction
+     */ 
+    double angle1=angle*PI/180.0;
+    double M[3][3];
+    double Mt[3][3];
+    double Rz[3][3];
+    double Rot[3][3];
+    double M1[3][3];
+    Calculate_Frame_Matrix(E,up,M);
+
+    Rz[0][0]=cos(-angle1);
+    Rz[0][1]=-sin(-angle1);
+    Rz[0][2]=0;
+    Rz[1][0]=sin(-angle1);
+    Rz[1][1]=cos(-angle1);
+    Rz[1][2]=0;
+    Rz[2][0]=0;
+    Rz[2][1]=0;
+    Rz[2][2]=1;
+    mult_mat(Rz,M,M1);
+    transpose(M,Mt);
+    mult_mat(Mt,M1,Rot);
+    mult_vector(Rot,up,upr);
+}
+

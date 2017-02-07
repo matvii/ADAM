@@ -22,7 +22,7 @@ KissFFT, Iniparser and Wcstools folders are included for convenience; they come 
 This program has been tested on Linux with gcc 5.3.
 
 ##Usage
-ADAM uses ini files to process data. For an example of asteroid Hertha, 135_1.ini and 135_1_oct.ini (usage: ./adam 135_1.ini). For all available config options and short descriptions, see the file Adam.ini.
+ADAM uses ini files to process data. For an example of asteroid Hertha, 135_oct.ini and 135_subdiv.ini (usage: ./adam 135_oct.ini). For all the available config options and short descriptions, see the file Adam.ini.
 Adam.pdf contains some useful tips. For theoretical background, read [Shape reconstruction from generalized projections](http://urn.fi/URN:ISBN:978-952-15-3673-1).
 
 ##License
@@ -59,6 +59,10 @@ Matti Viikinkoski (matti.viikinkoski@gmail.com)
 ####29.10.2016
 - Python and Matlab utilities for displaying shapes and plotting projections and occultations. See Readme in the Utils directory.
 
+####8.2.2017
+- Support for the Hapke scattering law
+- Stability of the subdivision surface fitting is slightly improved 
+- Some minor tweaks and fixes
+
 ####TODO
-- Hapke scattering law
 - Integration of thermal modelling stuff into the main program

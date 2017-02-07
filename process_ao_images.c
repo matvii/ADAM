@@ -1,7 +1,7 @@
 #include"utils.h"
 #include<stdio.h>
 #include"structs.h"
-
+#include"globals.h"
 AOstruct * process_ao_images(char **filenames,char **psfnames,int nao,int *x0,int *y0,int *nx,int *ny,int *xp0,int *yp0,int *npx,int *npy, double *dx,double *dy,double *dates,double min_tim,double *E,double *E0,double *up,double *TIME,int nephm,int *LowFreq)
 {
     /*INPUT:
@@ -171,6 +171,14 @@ AOstruct * process_ao_images(char **filenames,char **psfnames,int nao,int *x0,in
             AO->up[3*j+1]=up[3*j+1];
             AO->up[3*j+2]=up[3*j+2];
         }
+        if(INI_AO_ROTANGLE[j]!=0.0)
+        {
+            printf("Addional rotation angle %f set for the image %s\n",INI_AO_ROTANGLE[j],filenames[j]);
+            calc_cam_angle(AO->E+3*j,INI_AO_ROTANGLE[j],AO->up+3*j,upr);
+            AO->up[3*j]=upr[0];
+            AO->up[3*j+1]=upr[1];
+            AO->up[3*j+2]=upr[2];
+        }
         if(psfnames[j]!=NULL)
         {
         free(psfi);
@@ -180,7 +188,6 @@ AOstruct * process_ao_images(char **filenames,char **psfnames,int nao,int *x0,in
         free(datai);
         free(freqx);
         free(freqy);
-        
     }
     AO->ntotal=ntotal;
     return AO;

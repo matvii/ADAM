@@ -202,7 +202,8 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
     
     double *S,*S2;
     double *J,*JTJ,*JTJpd;
-    
+    double *Sp;
+    double *lhs;
     ////////////////////////////////////
 //     write_matrix_file("/tmp/data0r.txt",AO->datar[0],1,AO->nobs[0]);
 //     write_matrix_file("/tmp/data0i.txt",AO->datai[0],1,AO->nobs[0]);
@@ -216,7 +217,8 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
     //Number of rows in J
     Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+1+nvectorreg+nAlbreg; //LC points+AO points+OC points+RD points convex reg+oct reg+dihedral+[vector reg for free chords]
     int nJcols=alength+3+ncalib+nAlbedo+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp;
-    S=calloc(Slength,sizeof(double)); 
+    S=calloc(Slength+nJcols,sizeof(double)); 
+    Sp=calloc(Slength,sizeof(double));
     J=calloc(Slength*(nJcols),sizeof(double));
     int padding=3+nAOoffsets; 
     JTJ=calloc((nJcols)*(nJcols),sizeof(double));
@@ -242,8 +244,11 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
     int nMask=0;
     double *MJTJ;
     double *MJTJpd;
-    double *Mrhs;
+   
     double *MX;
+    double *JM;
+     double *d_old=calloc(nJcols,sizeof(double));
+  double *d=calloc(nJcols,sizeof(double));
     if(INI_MASK_SET==1)
     {
         Mask=calloc(nJcols,sizeof(int));
@@ -272,9 +277,9 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         mask_matrix(nJcols,Mask,&Mask_Matrix,&nMask);
         MJTJ=calloc(nMask*nMask,sizeof(double));
         MJTJpd=calloc(nMask*nMask,sizeof(double));
-        Mrhs=calloc(nMask,sizeof(double));
-        MX=calloc(nMask,sizeof(double));
         
+        MX=calloc(nMask+Slength,sizeof(double));
+        JM=calloc(Slength*nMask,sizeof(double));
     }
     //Weights
     int nvertn=0;
@@ -489,7 +494,8 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         
         
         matrix_transprod(J,Slength,nJcols,JTJ);
-         matrix_vectorprod(J,Slength,nJcols,S,rhs,1); //rhs=J^T*S;
+        // matrix_vectorprod(J,Slength,nJcols,S,rhs,1); //rhs=J^T*S;
+         memcpy(Sp,S,sizeof(double)*Slength);
          //////////////////
 
 //          write_matrix_file("/tmp/a.txt",a,alength,1);
@@ -497,22 +503,36 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
 //          write_matrix_file("/tmp/dCRda.txt",dCRda,1,alength);
          if(INI_MASK_SET==1)
             {
-                matrix_prod_ATBA(Mask_Matrix,nJcols,nMask,JTJ,MJTJ);
-                matrix_prod_ATB(Mask_Matrix,nJcols,nMask,rhs,1,Mrhs);
+                matrix_prod_ATBA(Mask_Matrix,nJcols,nMask,JTJ,MJTJ); //nMask x nMask
+               // matrix_prod_ATB(Mask_Matrix,nJcols,nMask,rhs,1,Mrhs);
+                matrix_prod(J,Slength,nJcols,Mask_Matrix,nMask,JM); //JM is Slength x nMask matrix
             }
         }
         
         if(INI_MASK_SET==1)
         {
-            matrix_adddiag(MJTJ,MJTJpd,nMask,lambda);
-            solve_matrix_eq(MJTJpd,nMask,Mrhs,MX);
+            matrix_max_diag(d_old,nMask,MJTJ,d);
+            memcpy(d_old,d,sizeof(double)*nMask);
+            zero_array(MX,nMask+Slength);
+            memcpy(MX,Sp,sizeof(double)*Slength);
+            matrix_concat_special2(JM,Slength,nMask,d,lambda,&lhs);
+            solve_matrix_eq_QR(lhs,Slength+nMask,nMask,MX);
+            free(lhs);
+            
             matrix_prod(Mask_Matrix,nJcols,nMask,MX,1,X);
         }
         else
         {
-        matrix_adddiag(JTJ,JTJpd,nJcols,lambda); //JTJpd=JTJ+lambda*diag(JTJ)
-        
-        solve_matrix_eq(JTJpd,nJcols,rhs,X); //Solve the LM 
+        //matrix_adddiag(JTJ,JTJpd,nJcols,lambda); //JTJpd=JTJ+lambda*diag(JTJ)
+        //matrix_max_diag(d_old,nJcols,JTJ,d);
+       // memcpy(d_old,d,sizeof(double)*nJcols);
+        //matrix_concat_special2(J,Slength,nJcols,d,lambda,&lhs);
+        matrix_concat_special(J,Slength,nJcols,JTJ,lambda,&lhs);
+        zero_array(S,nJcols+Slength);
+       memcpy(S,Sp,sizeof(double)*Slength);
+        solve_matrix_eq_QR(lhs,Slength+nJcols,nJcols,S); //Solve the LM 
+        free(lhs);
+        memcpy(X,S,nJcols*sizeof(double));
         }
       
     
@@ -608,7 +628,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
        
         matrix_transprod(S,Slength,1,&chisq2);
          matrix_transprod(AOout,nAOtotal,1,&AOfit);
-        printf("Round: %d chisq2: %7.2f\n",k+1,chisq2);
+        printf("Round: %d chisq2: %4.2f\n",k+1,chisq2);
       
        if(chisq2<chisq)
        {

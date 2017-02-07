@@ -12,7 +12,17 @@
 #include<omp.h>
 #include<string.h>
 #include"structs.h"
+#ifdef USE_MKL
+#include"mkl_lapacke.h"
+#include "mkl_types.h"
+#include "mkl_cblas.h"
+#else
+#include<cblas.h>
+#include<lapacke.h>
+#endif
 #include"wcstools-3.9.2/libwcs/fitsfile.h"
+int read_state_fileI(char *filename,char *text,int *buffer,int n);
+int read_state_file(char *filename,char *text,double *buffer,int n);
 void write_obj_file(char *file,int *tlist,double *vlist,int nfac,int nvert);
 void AdjFacet(int *tlist,double *vlist,int nfac,int nvert,int *A);
 void localsmooth(int *tlist,double *vlist,int nfac,int nvert,double *ealb,double *Alim,double *res,double *drda);
@@ -108,4 +118,6 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
 void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD);
 void octantoid_to_trimesh(double *a,int LMAX,int nrows,int *tlist,double *vlist,double *dvda,int padding);
 void octantoid_reg(double *a,int LMAX,double *oreg,double *doreg);
+void dhapke_bright(double *E,double *E0,double mu,double mu0,double *p,double th,double *rss,double *rdssdmu,double *rdssdmu0);
+void calc_cam_angle(double *E,double angle,double *up,double *upr);
 #endif

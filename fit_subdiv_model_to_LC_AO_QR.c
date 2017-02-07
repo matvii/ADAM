@@ -4,6 +4,7 @@
 #include"matrix_ops.h"
 #include"structs.h"
 #include"globals.h"
+
 void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
 {
     //First initialize the initial shape
@@ -204,7 +205,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     dAdv=calloc(nfacn*(3*nvert+3),sizeof(double));
     
     
-    double *S,*S2;
+    double *S,*Sp;
     double *J,*JTJ,*JTJpd;
     
    
@@ -222,8 +223,8 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     int Albcolpos=3*nvert+3+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp;
     int regpos=nLCtotal+nAOtotal+nOCtotal+nRDtotal;
     int Albregpos=regpos+1+1+nfacn+nvectorreg;
-   
-        S=calloc(Slength,sizeof(double));
+    S=calloc(Slength+nJcols,sizeof(double)); 
+    Sp=calloc(Slength,sizeof(double));
     J=calloc(Slength*(nJcols),sizeof(double));
     
     JTJ=calloc((nJcols)*(nJcols),sizeof(double));
@@ -234,9 +235,13 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     int nMask=0;
     double *MJTJ;
     double *MJTJpd;
-    double *Mrhs;
+    
     double *MX;
-  
+    double *JM;
+    double *lhs;
+    
+  double *d_old=calloc(nJcols,sizeof(double));
+  double *d=calloc(nJcols,sizeof(double));
     if(INI_MASK_SET==1)
     {
         Mask=calloc(nJcols,sizeof(int));
@@ -266,8 +271,10 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         mask_matrix(nJcols,Mask,&Mask_Matrix,&nMask);
         MJTJ=calloc(nMask*nMask,sizeof(double));
         MJTJpd=calloc(nMask*nMask,sizeof(double));
-        Mrhs=calloc(nMask,sizeof(double));
-        MX=calloc(nMask,sizeof(double));
+       
+        MX=calloc(nMask+Slength,sizeof(double));
+        
+        JM=calloc(Slength*nMask,sizeof(double));
         
     }
                 
@@ -299,8 +306,8 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     double chisq=1e9;
     double chisq2;
     double Aresfit;
+    double prevdec=10;
     double dec=10;
-    double prevdec=dec;
     double threshold=INI_MINDEC;
     int count=0;
     int DONE=0;
@@ -487,7 +494,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             matrix_transprod(LCout,nLCtotal,1,&LCfit);
             matrix_transprod(S,Slength,1,&chisq);
             matrix_transprod(Ares,nfacn,1,&Aresfit);
-            printf("chisq: %f LCfit: %f AOfit: %f OCfit: %f RDfit: %f Convex reg: %f Dihedral Angle reg: %f Area reg:%f\n",chisq,LCfit,AOfit,OCfit,RDfit,pow(CRres,2),pow(ANGres,2),Aresfit); 
+            printf("chisq: %4.2f LCfit: %4.2f AOfit: %4.2f OCfit: %4.2f RDfit: %4.2f Convex reg: %4.2f Dihedral Angle reg: %4.2f Area reg:%4.2f\n",chisq,LCfit,AOfit,OCfit,RDfit,pow(CRres,2),pow(ANGres,2),Aresfit); 
             
             //Construct Jacobian matrix
             
@@ -525,26 +532,48 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
 //                          exit(1);
             /////////////DEBUG////////////////////////////////     
             matrix_transprod(J,Slength,nJcols,JTJ);
-            matrix_vectorprod(J,Slength,nJcols,S,rhs,1); //rhs=J^T*S;
+          //  matrix_vectorprod(J,Slength,nJcols,S,rhs,1); //rhs=J^T*S;
+            memcpy(Sp,S,sizeof(double)*Slength);
             if(INI_MASK_SET==1)
             {
                 matrix_prod_ATBA(Mask_Matrix,nJcols,nMask,JTJ,MJTJ);
-                matrix_prod_ATB(Mask_Matrix,nJcols,nMask,rhs,1,Mrhs);
+                
+                matrix_prod(J,Slength,nJcols,Mask_Matrix,nMask,JM); //JM is SLength x nMask matrix
+              //  matrix_prod_ATB(JM,Slength,nMask,S,1,Mrhs); //Mrhs is nMask x 1 matrix
             }
             
         }
         if(INI_MASK_SET==1)
         {
-            matrix_adddiag(MJTJ,MJTJpd,nMask,lambda);
-            solve_matrix_eqS(MJTJpd,nMask,Mrhs,MX);
+           // matrix_adddiag(MJTJ,MJTJpd,nMask,lambda);
+            matrix_max_diag(d_old,nMask,MJTJ,d);
+            memcpy(d_old,d,sizeof(double)*nMask);
+            zero_array(MX,nMask+Slength);
+            memcpy(MX,Sp,sizeof(double)*Slength);
+            matrix_concat_special2(JM,Slength,nMask,d,lambda,&lhs);
+            solve_matrix_eq_QR(lhs,Slength+nMask,nMask,MX);
+            free(lhs);
             matrix_prod(Mask_Matrix,nJcols,nMask,MX,1,X);
+         
+            
+            //solve_matrix_eqS(MJTJpd,nMask,Mrhs,MX);
+            //matrix_prod(Mask_Matrix,nJcols,nMask,MX,1,X);
         }
         else
         {
-        matrix_adddiag(JTJ,JTJpd,nJcols,lambda); //JTJpd=JTJ+lambda*diag(JTJ)
+      //  matrix_adddiag(JTJ,JTJpd,nJcols,lambda); //JTJpd=JTJ+lambda*diag(JTJ)
         
-        solve_matrix_eqS(JTJpd,nJcols,rhs,X); //Solve the LM 
+       matrix_max_diag(d_old,nJcols,JTJ,d);
+       memcpy(d_old,d,sizeof(double)*nJcols);
+       matrix_concat_special2(J,Slength,nJcols,d,lambda,&lhs);
+       // matrix_concat_special(J,Slength,nJcols,JTJ,lambda,&lhs); //S has been allocated to Slength+nJcols
+       zero_array(S,nJcols+Slength);
+        memcpy(S,Sp,sizeof(double)*Slength);
+        solve_matrix_eq_QR(lhs,Slength+nJcols,nJcols,S); //Solve the LM 
+        free(lhs);
+        memcpy(X,S,nJcols*sizeof(double));
         }
+       
        
         add_vector_to_vlist(vlist,X,vlist2,nvert);
         if(INI_HAVE_AO)
@@ -639,7 +668,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         
         matrix_transprod(S,Slength,1,&chisq2);
         //matrix_transprod(AOout,nAOtotal,1,&AOfit);
-        printf("Round: %d chisq2: %f lambda: %f \n",k+1,chisq2,lambda);
+        printf("Round: %d chisq2: %4.2f lambda: %4.2f \n",k+1,chisq2,lambda);
         //printf("k=%d\n",k);
         if(chisq2<chisq)
         {
@@ -693,6 +722,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             printf("Two previous optimization steps below threshold, stopping optimization loop.\n");
             DONE=1;
         }
+       
         if(lambda>INI_LAMBDAMAX)
         {
             printf("Lambda is larger than LambdaMax, stopping loop\n");

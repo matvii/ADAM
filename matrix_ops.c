@@ -1,10 +1,7 @@
 
 #include"utils.h"
 
-#include<lapacke.h>
-#include<cblas.h>
-#include<stdlib.h>
-#include<stdio.h>
+
 /*
  * NOTE:
  * for mxk matrix A, kxn matrix B, C=A*B
@@ -196,3 +193,77 @@ void matrix_prod_ATB(double *A,int m,int k,double *B,int n,double *C)
      matrix_prod_ATB(A,m,k,C,k,D);
      free(C);
  }
+void matrix_concat_special(double *A,int m,int k,double *B,double lambda,double **C)
+{
+    /*
+     * Generate matrix C=[A;sqrt(lambda*diag(B))]
+     * Where A is mxk
+     * B is kxk with nonnegative diagonal entries
+     * Resulting matrix is m+kxk matrix
+     * 
+     */
+    double *D;
+    D=calloc((m+k)*k,sizeof(double));
+    double slamb=sqrt(lambda);
+    memcpy(D,A,m*k*sizeof(double)); 
+    for(int j=0;j<k;j++)
+      D[k*m+k*j+j]=slamb*sqrt(B[k*j+j]);
+    *C=D;
+}
+ void solve_matrix_eq_QR(double *A,int m,int k,double *B)
+{
+    /*
+     * A is mxk matrix, B is mx1 matrix, solution will be placed to B
+     * Solve AX=B
+     * Solution is placed in k first elements of B
+     */
+    /*Contents of A are destroyed*/
+    
+    int info;
+    
+     
+    
+     
+    info = LAPACKE_dgels(LAPACK_ROW_MAJOR,'N', m, k, 1, A, k, B, 1);
+        /* Check for convergence */
+        if( info > 0 ) {
+                printf( "Matrix does not have full rank; the least squares solution could not be computed.\n" );
+                exit( 1 );
+        }
+} 
+void matrix_concat_special2(double *A,int m,int k,double *B,double lambda,double **C)
+{
+    /*
+     * Generate matrix C=[A;sqrt(lambda*diag(B))]
+     * Where A is mxk
+     * B is 1xk vector with nonnegative  entries
+     * Resulting matrix is m+kxk matrix
+     * 
+     */
+    double *D;
+    D=calloc((m+k)*k,sizeof(double));
+    double slamb=sqrt(lambda);
+    memcpy(D,A,m*k*sizeof(double)); 
+    for(int j=0;j<k;j++)
+      D[k*m+k*j+j]=slamb*B[j];
+    *C=D;
+}
+void matrix_max_diag(double *A,int m,double *B,double *C)
+{
+    /*
+     * Input: A 1xm vector
+     * B mxm matrix
+     * Output: C[k]=max{A[k],sqrt(B[k,k])}
+     */
+    for(int j=0;j<m;j++)
+        C[j]=fmax(A[j],sqrt(B[m*j+j]));
+}
+void matrix_diag(double *A,int m,double *B)
+{
+    /*
+     * Extract the diagonal of matrix A
+     * and output it to B
+     */
+    for(int j=0;j<m;j++)
+        B[j]=A[m*j+j];
+}
