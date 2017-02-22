@@ -31,21 +31,22 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
    angles2[3]=angles[3];
     //This is for calibrated lightcurves
     double *params=NULL,*params2=NULL;
+    int ncalib=0;
     if(INI_PHASE_PARAMS!=NULL)
     {
-        params=calloc(4,sizeof(double));
-        params2=calloc(4,sizeof(double));
+        params=calloc(3,sizeof(double));
+        params2=calloc(3,sizeof(double));
         params[0]=INI_PHASE_PARAMS[0];
         params[1]=INI_PHASE_PARAMS[1];
         params[2]=INI_PHASE_PARAMS[2];
-        params[3]=INI_PHASE_PARAMS[3];
-        memcpy(params2,params,sizeof(double)*4);
+       
+        memcpy(params2,params,sizeof(double)*3);
+          ncalib=3;
     }
      int nLCtotal=LC->ntotal;
     int USE_CALIB=LC->calib;
-    int ncalib=0;
-    if(USE_CALIB==1)
-        ncalib=4;
+   
+      
     //This is for calibrated lightcurves end
     //LC albedo variegation
     int nAlbedo=0;
@@ -212,9 +213,18 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
 //     write_matrix_file("/tmp/freqy.txt",AO->freqy[0],1,AO->nobs[0]);
     /////////////////////////////////////////////////////
     int Slength;
-   
+   double zm=0;
+   double *dzmdz,*dzmdzt,*dzmda;
+   int softmaxz=0;
+   if(INI_ZMAX_WEIGHT>0)
+   {
+       softmaxz=1;
+       dzmdz=calloc(nvert,sizeof(double));
+       dzmdzt=calloc(3*nvert+3,sizeof(double));
+       dzmda=calloc(alength+3,sizeof(double));
+   }
     //Number of rows in J
-    Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+1+nvectorreg+nAlbreg; //LC points+AO points+OC points+RD points convex reg+oct reg+dihedral+[vector reg for free chords]
+    Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+1+softmaxz+nvectorreg+nAlbreg; //LC points+AO points+OC points+RD points+ convex reg+oct reg+dihedral+[softmaxz]+[vector reg for free chords]
     int nJcols=alength+3+ncalib+nAlbedo+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp;
     S=calloc(Slength,sizeof(double)); 
     J=calloc(Slength*(nJcols),sizeof(double));
@@ -229,7 +239,13 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
     int RDrowpos=nLCtotal+nAOtotal+nOCtotal;
     int Albcolpos=alength+3+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp;
     int regpos=nLCtotal+nAOtotal+nOCtotal+nRDtotal;
-     int Albregpos=regpos+1+1+1+nvectorreg;
+    int Convregpos=regpos;
+    int Octregpos=regpos+1;
+    int Angregpos=regpos+2;
+    int Zmaxregpos=Angregpos+1;
+    int Vectorregpos=Zmaxregpos+softmaxz;
+     int Albregpos=Vectorregpos+nvectorreg;
+     int phasecolpos=alength+3+nAlbedo+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp;
     double *LCout,*dLCdv,*rhs,*X,*dLCda,*dLCdp=NULL;
     LCout=calloc(nLCtotal,sizeof(double));
     dLCdv=calloc((nLCtotal)*(3*nvert+3),sizeof(double));
@@ -253,6 +269,8 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         if(INI_FIX_ANGLES==1)
             for(int k=alength;k<alength+3;k++)
                 Mask[k]=1;
+        if(INI_FIX_A1==1)
+            Mask[0]=1;
         if(INI_FREE_CHORD_NMR>0)
         {
             for(int k=0;k<nChordoffsets;k++)
@@ -263,10 +281,10 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
        
         if(INI_PHASE_MASK!=NULL)
         {
-            Mask[nJcols-4]=INI_PHASE_MASK[0];
-            Mask[nJcols-3]=INI_PHASE_MASK[1];
-            Mask[nJcols-2]=INI_PHASE_MASK[2];
-            Mask[nJcols-1]=INI_PHASE_MASK[3];
+            Mask[phasecolpos]=INI_PHASE_MASK[0];
+            Mask[phasecolpos+1]=INI_PHASE_MASK[1];
+            Mask[phasecolpos+2]=INI_PHASE_MASK[2];
+            
             
         }
         mask_matrix(nJcols,Mask,&Mask_Matrix,&nMask);
@@ -299,8 +317,8 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
    //Allocate for D matrix
     D1=calloc((3*nvert+3)*(alength+3),sizeof(double));
     D2=calloc((3*nvert+3+nAOoffsets)*(alength+3+nAOoffsets),sizeof(double));
-  if(USE_CALIB==1)
-        dLCdp=calloc(nLCtotal*4,sizeof(double));
+  if(INI_PHASE_PARAMS!=NULL)
+        dLCdp=calloc(nLCtotal*3,sizeof(double));
   //Restore previous state if the state file is available
   if(INI_RESTORE_STATE)
   {
@@ -388,9 +406,9 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                     mult_with_cons(dChordoffset,nOCtotal,nChordoffsets,-ocW);
                     mult_with_cons(dvectorreg,1,nChordoffsets,-INI_CHRDW);
                     vectorreg*=INI_CHRDW;
-                    S[regpos+3]=vectorreg; //NOTE ABSOLUTE ADDRESS HERE. FIX!
+                    S[Vectorregpos]=vectorreg; 
                     set_submatrix(J,Slength,nJcols,dChordoffset,nOCtotal,nChordoffsets,OCrowpos,Chordoffsetcolpos); //Chord offsets
-                    set_submatrix(J,Slength,nJcols,dvectorreg,1,nChordoffsets,regpos+3,Chordoffsetcolpos);
+                    set_submatrix(J,Slength,nJcols,dvectorreg,1,nChordoffsets,Vectorregpos,Chordoffsetcolpos);
                   
                 }
                     
@@ -440,6 +458,16 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         matrix_prod(dCRdv,1,3*nvert+3,D1,alength+3,dCRda);
         //Octantoid regularization
         octantoid_reg(a,INI_LMAX,&Ores,dOda);
+        if(INI_ZMAX_WEIGHT>0)
+           {
+               soft_maxdimz(tlist,vlist,nfac,nvert,NULL,nvert,INI_ZMAX,1.0,&zm,dzmdz);
+               zm*=INI_ZMAX_WEIGHT;
+               memcpy(dzmdzt+2*nvert,dzmdz,nvert*sizeof(double));
+               matrix_prod(dzmdzt,1,3*nvert+3,D1,alength+3,dzmda);
+               mult_with_cons(dzmda,1,alength+3,-INI_ZMAX_WEIGHT);
+               S[Zmaxregpos]=zm;
+               set_submatrix(J,Slength,nJcols,dzmda,1,alength,Zmaxregpos,0);
+           }
 
         
         mult_with_cons(LCout,1,nLCtotal,lcW);
@@ -457,27 +485,30 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         set_submatrix(S,1,Slength,LCout,1,nLCtotal,0,0);
         
        
-        S[regpos]=CRres; //Convex reg terms
-        S[regpos+1]=Ores; //Octantoid reg
-       S[regpos+2]=ANGres;
+        S[Convregpos]=CRres; //Convex reg terms
+        S[Octregpos]=Ores; //Octantoid reg
+       S[Angregpos]=ANGres;
         
        
         matrix_transprod(S,Slength,1,&chisq);
        matrix_transprod(LCout,nLCtotal,1,&LCfit);
-        printf("Round: %d chisq: %4.2f LCfit: %4.2f AOfit: %4.2f OCfit: %4.2f RDfit: %4.2f Convex reg: %4.2f Octantoid reg: %4.2f Dihedral reg: %4.2f\n",k,chisq,LCfit,AOfit,OCfit,RDfit,pow(CRres,2),pow(Ores,2),pow(ANGres,2)); 
+        printf("Round: %d chisq: %4.2f LCfit: %4.2f AOfit: %4.2f OCfit: %4.2f RDfit: %4.2f Convex reg: %4.2f Octantoid reg: %4.2f Dihedral reg: %4.2f",k,chisq,LCfit,AOfit,OCfit,RDfit,pow(CRres,2),pow(Ores,2),pow(ANGres,2)); 
        //printf("scale: %f %f\n",AOscale[0],AOscale[1]);
         //Construct Jacobian matrix
-        
+         if(INI_ZMAX_WEIGHT>0)
+                printf(" Zmax reg: %f\n",pow(zm,2));
+            else
+                printf("\n");
         set_submatrix(J,Slength,nJcols,dLCda,nLCtotal,alength+3,0,0);
        
-        set_submatrix(J,Slength,nJcols,dCRda,1,alength+3,regpos,0);
-        set_submatrix(J,Slength,nJcols,dOda,1,alength,regpos+1,0);
-        set_submatrix(J,Slength,nJcols,dANGda,1,alength,regpos+2,0);
+        set_submatrix(J,Slength,nJcols,dCRda,1,alength+3,Convregpos,0);
+        set_submatrix(J,Slength,nJcols,dOda,1,alength,Octregpos,0);
+        set_submatrix(J,Slength,nJcols,dANGda,1,alength,Angregpos,0);
         
-           if(USE_CALIB==1)
+           if(INI_PHASE_PARAMS!=NULL)
             {
-                mult_with_cons(dLCdp,nLCtotal,4,lcW);
-                set_submatrix(J,Slength,nJcols,dLCdp,nLCtotal,4,0,nJcols-4);
+                mult_with_cons(dLCdp,nLCtotal,3,lcW);
+                set_submatrix(J,Slength,nJcols,dLCdp,nLCtotal,3,0,phasecolpos);
             } 
        
          // write_matrix_file("/tmp/S.txt",S,1,Slength);
@@ -540,12 +571,12 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         angles2[2]=angles[2]+X[alength+2];
         angles2[3]=angles[3];
        
-      if(USE_CALIB==1)
+      if(INI_PHASE_PARAMS!=NULL)
         {
-            params2[0]=params[0]+X[nJcols-4];
-            params2[1]=params[1]+X[nJcols-3];
-            params2[2]=params[2]+X[nJcols-2];
-            params2[3]=params[3]+X[nJcols-1];
+            params2[0]=params[0]+X[phasecolpos];
+            params2[1]=params[1]+X[phasecolpos+1];
+            params2[2]=params[2]+X[phasecolpos+2];
+           
         }
          if(INI_HAVE_RD)
         {
@@ -580,7 +611,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
             if(INI_FREE_CHORD_NMR>0)
             {
                 vector_regularization(Chordoffset2,nChordoffsets,&vectorreg,dvectorreg);
-                S[regpos+3]=INI_CHRDW*vectorreg;
+                S[Vectorregpos]=INI_CHRDW*vectorreg;
             }
         }
         if(INI_HAVE_RD)
@@ -600,10 +631,15 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         ANGres*=angW;
         
        set_submatrix(S,1,Slength,LCout,1,nLCtotal,0,0);
-        
-        S[regpos]=CRres; //Convex reg terms
-        S[regpos+1]=Ores;
-        S[regpos+2]=ANGres;
+        if(INI_ZMAX_WEIGHT>0)
+        {
+            soft_maxdimz(tlist,vlist,nfac,nvert,NULL,nvert,INI_ZMAX,1.0,&zm,dzmdz);
+            zm*=INI_ZMAX_WEIGHT;
+            S[Zmaxregpos]=zm;
+        }
+        S[Convregpos]=CRres; //Convex reg terms
+        S[Octregpos]=Ores;
+        S[Angregpos]=ANGres;
         
        
         matrix_transprod(S,Slength,1,&chisq2);
@@ -629,8 +665,8 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                if(INI_FREE_CHORD_NMR>0)
                     memcpy(Chordoffset,Chordoffset2,sizeof(double)*(nChordoffsets));
            }
-           if(USE_CALIB==1)
-                memcpy(params,params2,4*sizeof(double));
+           if(INI_PHASE_PARAMS!=NULL)
+                memcpy(params,params2,3*sizeof(double));
            if(INI_HAVE_RD)
             {
                 memcpy(RDoffset,RDoffset2,sizeof(double)*(nRDoffsets));
@@ -669,6 +705,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         
         
         printf("Angles: %.4f %.4f %.8f\n",angles[0],angles[1],angles[2]);
+        printf("Volume equivalent diameter: %4.3f\n",vol_eq_dia(tlist,vlist,nfac,nvert));
         if(INI_HAVE_OC)
         {
             printf("Occultation offsets:\n");
@@ -695,7 +732,9 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                 for(int j=0;j<LC->nlc;j++)
                     zero_array(LC->lcs[j],LC->nobs[j]);
                  octantoid_to_trimesh(a,INI_LMAX,INI_NROWS,tlist,vlist,D1,3);
-                calculate_lcs(tlist,vlist,nfac,nvert,angles,LC,NULL,nvert,nvert,LCout,dLCdv,NULL,NULL,NULL,NULL,NULL,0);
+               for(int jk=0;jk<LC->nlc;jk++)
+                   INI_LC_WEIGHTS[jk]=1.0;
+                calculate_lcs(tlist,vlist,nfac,nvert,angles,LC,NULL,nvert,nvert,LCout,dLCdv,eAlbedo,Alblimits,NULL,params,NULL,0);
                 for(int j=0;j<LC->ntotal;j++)
                     fprintf(fidlc,"%f\n",-LCout[j]);
                 fclose(fidlc);
@@ -714,7 +753,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
             if(params!=NULL)
             {
             printf("Phase parameters: \n");
-                print_matrix(params,1,4);
+                print_matrix(params,1,3);
             }
             
         if(OUT_SHAPE_PARAM_FILE!=NULL)
@@ -735,7 +774,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                 if(INI_PHASE_PARAMS!=NULL)
                 {
                     fprintf(fp,"#Phaseparams:\n");
-                    fprintf(fp,"%.4f %.4f %.4f %.4f\n",params[0],params[1],params[2],params[3]);
+                    fprintf(fp,"%.4f %.4f %.4f\n",params[0],params[1],params[2]);
                 }
                 if(INI_FIT_ALBEDO==1)
                 {

@@ -120,4 +120,8 @@ void octantoid_to_trimesh(double *a,int LMAX,int nrows,int *tlist,double *vlist,
 void octantoid_reg(double *a,int LMAX,double *oreg,double *doreg);
 void dhapke_bright(double *E,double *E0,double mu,double mu0,double *p,double th,double *rss,double *rdssdmu,double *rdssdmu0);
 void calc_cam_angle(double *E,double angle,double *up,double *upr);
+double calc_vol(int *tlist,double *vlist,int nfac,int nvert);
+double vol_eq_dia(int *tlist,double *vlist,int nfac,int nvert);
+void soft_maxdimz(int *tlist,double *vlist,int nfacn,int nvertn,double *D,int nvert,double zmax,double c,double *zm,double *dz);
+int read_weight_file(char *filename,double *W,int max_size);
 #endif

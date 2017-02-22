@@ -1,7 +1,7 @@
 #include<stdlib.h>
 #include<stdio.h>
 #include<string.h>
-#include"iniparser.h"
+#include"iniparser/src/iniparser.h"
 #include<math.h>
 #include"structs.h"
 #include"utils.h"
@@ -30,6 +30,8 @@ char *OUT_SHAPE_PARAM_FILE=NULL;
 double *INI_OC_OFFSET=NULL;
 char *OUT_LC_FILE=NULL;
 int USE_ELLIPSOID=0;
+int *INI_SPARSE_LCS=NULL;
+int INI_SPARSE_LC_NMR=0;
 double ELLIPSOID_SEMI_A=0;
 double ELLIPSOID_SEMI_B=0;
 double ELLIPSOID_SEMI_C=0;
@@ -44,8 +46,10 @@ double INI_AW=0;
 double INI_DW=0;
 double INI_OW=0;
 double INI_RW=0;
+double INI_ZMAX_WEIGHT=0;
+double INI_ZMAX=10;
 double INI_CHRDW=0;
-double INI_CALIBLCW=0;
+
 double INI_LAMBDAINC=10;
 double INI_LAMBDADEC=10;
 double INI_LAMBDAMAX=1e6;
@@ -53,6 +57,7 @@ double INI_MINDEC=0.1;
 double *INI_AO_WEIGHT=NULL;
 double *INI_OC_WEIGHT=NULL;
 double *INI_RD_WEIGHT=NULL;
+double *INI_LC_WEIGHTS=NULL;
 int *INI_PHASE_MASK=NULL;
 double INI_LAMBDA=1;
 double INI_RDEXP=0.59;
@@ -70,6 +75,7 @@ int *INI_FREE_CHORD_LIST=NULL;
 int INI_FREE_CHORD_NMR=0;
 int INI_FIX_SHAPE=0;
 int INI_FIX_ANGLES=0;
+int INI_FIX_A1=0;
 int INI_LC_ARE_RELATIVE=0;
 int INI_FIT_ALBEDO=0;
 double INI_ALBREGW=1;
@@ -136,6 +142,7 @@ int parse_ini(char *filename)
     else
         printf("Zero time not set. Assuming 0\n");
     s=iniparser_getstring(ini,"Shape:Angles",NULL);
+   
     if(s!=NULL)
     {
         INI_ANGLE_B=atof(strtok(s,","));
@@ -147,7 +154,7 @@ int parse_ini(char *filename)
             exit(1);
         }
         char *phi0=strtok(NULL,",");
-        if(phi0!=NULL)
+       if(phi0!=NULL)
             INI_ANGLE_PHI0=atof(phi0);
     }
     else
@@ -161,7 +168,10 @@ int parse_ini(char *filename)
     s=iniparser_getstring(ini,"Shape:FixAngles",NULL);
     if(s!=NULL)
         INI_FIX_ANGLES=atoi(s);
-    if(INI_FIX_SHAPE==1 || INI_FIX_ANGLES==1)
+    s=iniparser_getstring(ini,"Shape:FixA1",NULL);
+    if(s!=NULL)
+        INI_FIX_A1=atoi(s);
+    if(INI_FIX_SHAPE==1 || INI_FIX_ANGLES==1 ||INI_FIX_A1==1)
         INI_MASK_SET=1;
     //Parse optimization
     s=iniparser_getstring(ini,"Optimization:NumberofRounds","50");
@@ -196,13 +206,17 @@ int parse_ini(char *filename)
     INI_MINDEC=atof(s);
     s=iniparser_getstring(ini,"Optimization:RDexp","2");
     INI_RDEXP=log(atoi(s));
-    s=iniparser_getstring(ini,"Optimization:CalibLCWeight","1");
-    INI_CALIBLCW=atof(s);
     s=iniparser_getstring(ini,"Optimization:ChordWeight","1");
     INI_CHRDW=atof(s);
     s=iniparser_getstring(ini,"Optimization:AlbRegWeight","1");
     INI_ALBREGW=atof(s);
     //Parse Data
+    s=iniparser_getstring(ini,"Optimization:RestrictZCoord",NULL);
+        if(s!=NULL)
+            INI_ZMAX=atof(s);
+    s=iniparser_getstring(ini,"Optimization:RestrictZcoordWeight",NULL);
+    if(s!=NULL)
+        INI_ZMAX_WEIGHT=atof(s);
     s=iniparser_getstring(ini,"Data:UseLC","1");
     INI_HAVE_LC=atoi(s);
     s=iniparser_getstring(ini,"Data:UseAO","0");
@@ -224,17 +238,26 @@ int parse_ini(char *filename)
     s=iniparser_getstring(ini,"LC:LCFile",NULL);
     //Prepare LC data
     INI_LC=read_lcurve(s,INI_MIN_TIM);
+    //Read LC Weight file
+    s=iniparser_getstring(ini,"LC:LCWeightFile",NULL);
+    INI_LC_WEIGHTS=calloc(INI_LC->nlc,sizeof(double));
+    for(int jk=0;jk<INI_LC->nlc;jk++)
+        INI_LC_WEIGHTS[jk]=1.0;
+    if(s!=NULL)
+        read_weight_file(s,INI_LC_WEIGHTS,INI_LC->nlc);
     s=iniparser_getstring(ini,"LC:PhaseParams",NULL);
     if(s!=NULL)
     {
         
-        INI_PHASE_PARAMS=calloc(4,sizeof(double));
+        INI_PHASE_PARAMS=calloc(3,sizeof(double));
         INI_PHASE_PARAMS[0]=atof(strtok(s,","));
         INI_PHASE_PARAMS[1]=atof(strtok(NULL,","));
         INI_PHASE_PARAMS[2]=atof(strtok(NULL,","));
-        INI_PHASE_PARAMS[3]=atof(strtok(NULL,","));
+        
        
     }
+   
+        
     s=iniparser_getstring(ini,"LC:HapkeParams",NULL);
     if(s!=NULL)
     {
@@ -264,7 +287,7 @@ int parse_ini(char *filename)
          INI_MASK_SET=1;
     }
     }
-    if(INI_LC->calib==1 && INI_PHASE_PARAMS==NULL && INI_HAPKE==NULL)
+    if(INI_LC->ncalib>0 && INI_PHASE_PARAMS==NULL && INI_HAPKE==NULL)
     {
         fprintf(stderr,"WARNING: There are calibrated lightcurves, but phase params or Hapke are not set. Either set AllLCRelative=1 or PhaseParams=... or HapkeParams\n");
         

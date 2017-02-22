@@ -42,7 +42,7 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
      if(Albedo!=NULL)
          zero_array(dAlb,ntpoints*nfac);
      if(dparams!=NULL)
-         zero_array(dparams,ntpoints*4);
+         zero_array(dparams,ntpoints*3);
        omp_set_num_threads(NUM_THREADS);
     #pragma omp parallel for
     for(int j=0;j<nlc;j++)
@@ -63,7 +63,7 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
         double *dbrightp;
         double *dA;
         double *lcs;
-        double clcw=1;
+        double lcw=INI_LC_WEIGHTS[j];
         bright=calloc(pinlc,sizeof(double));
         dbrightx=calloc(pinlc*nvertf,sizeof(double));
         dbrighty=calloc(pinlc*nvertf,sizeof(double));
@@ -71,7 +71,7 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
         dbrightb=calloc(pinlc,sizeof(double));
         dbrightl=calloc(pinlc,sizeof(double));
         dbrighto=calloc(pinlc,sizeof(double));
-        dbrightp=calloc(pinlc*4,sizeof(double));
+        dbrightp=calloc(pinlc*3,sizeof(double));
         if(Albedo!=NULL)
             dA=calloc(pinlc*nfac,sizeof(double)); //If no albedo, then no albedo derivatives
         E=LC->E[j];
@@ -101,15 +101,11 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
         /*Copy stuff to correct places*/
         //  printf("\n dLdx at %d, cind is %d,ntpoints is %d\n",j,cind,ntpoints);
         // print_matrix(dbrightx,pinlc,nvertf);
-        if(params!=NULL && LC->rel[j]==0)
-        {
-            clcw=INI_CALIBLCW;
-            mult_with_cons(dbrightp,pinlc,4,clcw);
-        }
-        else
-            clcw=1.0;
+        if(params!=NULL)
+            mult_with_cons(dbrightp,pinlc,3,lcw);
+        
         for(int k=0;k<pinlc;k++)
-            LCout[k+cumpoints[j]]=clcw*(lcs[k]-bright[k]);
+            LCout[k+cumpoints[j]]=lcw*(lcs[k]-bright[k]);
        
         free(bright);
         if(deriv==1)
@@ -117,7 +113,17 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
             
             
             /*Copy derivatives*/
-            
+            if(lcw!=1.0)
+            {
+              mult_with_cons(dbrightx,pinlc,nvertf,lcw);
+              mult_with_cons(dbrighty,pinlc,nvertf,lcw); 
+              mult_with_cons(dbrightz,pinlc,nvertf,lcw);
+              mult_with_cons(dbrightb,pinlc,1,lcw);
+              mult_with_cons(dbrightl,pinlc,1,lcw);
+              mult_with_cons(dbrighto,pinlc,1,lcw);
+              
+              
+            }
             set_submatrix(dLCdv,ntpoints,3*nvertf+3,dbrightx,pinlc,nvertf,cind,0);
             
             
@@ -133,11 +139,12 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
             
             if(Albedo!=NULL)
             {
+                mult_with_cons(dA,pinlc,nfac,lcw);
                 set_submatrix(dAlb,ntpoints,nfac,dA,pinlc,nfac,cind,0);
                 free(dA);
             }
             if(params!=NULL && dparams!=NULL)
-                set_submatrix(dparams,ntpoints,4,dbrightp,pinlc,4,cind,0);
+                set_submatrix(dparams,ntpoints,3,dbrightp,pinlc,3,cind,0);
             
         }
         free(dbrightx);

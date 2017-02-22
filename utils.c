@@ -273,6 +273,7 @@ struct LC  *read_lcurve(char* filename,double min_tim)
       exit(-1);
   }
   int cal,nlc,nobs;
+  int ncalib=0;
   double *br,cumsum;
   double E[3],E0[3];
   double lE,lE0;
@@ -358,7 +359,8 @@ struct LC  *read_lcurve(char* filename,double min_tim)
           for(int k=0;k<nobs;k++)
               (*tlc).lcs[i][k]=br[k];
           tlc->calib=1;
-          printf("Lcurve %d is taken as calibrated\n",i+1);
+          printf("Lcurve %d is  calibrated\n",i+1);
+          ncalib++;
       }
               
           
@@ -369,6 +371,7 @@ struct LC  *read_lcurve(char* filename,double min_tim)
   free(buffer);
   fclose(fid);
   tlc->ntotal=total;
+  tlc->ncalib=ncalib;
   return tlc;
 }
 
@@ -1256,3 +1259,73 @@ void calc_cam_angle(double *E,double angle,double *up,double *upr)
     mult_vector(Rot,up,upr);
 }
 
+double calc_vol(int *tlist,double *vlist,int nfac,int nvert)
+{
+    /*Calculate the volume of triangular shape
+     */
+    double vol=0;
+    int i1,i2,i3;
+    double *v1,*v2,*v3;
+    double tV[3];
+    for(int j=0;j<nfac;j++)
+    {
+        i1=tlist[3*j]-1;
+        i2=tlist[3*j+1]-1;
+        i3=tlist[3*j+2]-1;
+        v1=vlist+3*i1;
+        v2=vlist+3*i2;
+        v3=vlist+3*i3;
+        cross(v2,v3,tV);
+        vol+=1.0/6.0*(v1[0]*tV[0]+v1[1]*tV[1]+v1[2]*tV[2]);
+    }
+    return vol;
+}
+double vol_eq_dia(int *tlist,double *vlist,int nfac,int nvert)
+{
+    double vol;
+    vol=calc_vol(tlist,vlist,nfac,nvert);
+    return 2*cbrt(3.0/(4.0*PI)*vol);
+}
+int read_weight_file(char *filename,double *W,int max_size)
+{
+    /*Read information from  a file s
+     * Example:
+     * 1 0.5
+     * 2 0.3
+     * 5 0.2
+     * Sets W[0]=0.5, W[1]=0.3 and W[5]=0.2 and leaves everything else unchanged
+     * Maximum allowable index is max_size
+     */
+    char *buffer=calloc(2048,sizeof(char));
+ 
+  FILE *fid;
+  fid=fopen(filename,"r");
+ 
+  int index=0;
+  double w=0.1;
+  int count=0;
+  if(fid==NULL)
+  {
+      perror("Cannot open lcurve weights file!");
+      exit(-1);
+  }
+  while(fgets(buffer,2000,fid)!=NULL)
+    {
+      
+        if(buffer[0]=='#' || buffer[0]==';' ||buffer[0]=='\n' ||buffer[0]=='\0')
+            continue;
+        if(sscanf(buffer,"%d %lf",&index,&w)!=2)
+        {
+            fprintf(stderr,"Error parsing a line from the lcurve weight file (was: %s), ignoring\n",buffer);
+            continue;
+        }
+        if(index>max_size)
+        {
+            fprintf(stderr,"Index %d in the lcurve weight file is larger than the number of lightcurves, ignoring\n",index);
+            continue;
+        }
+       count++;
+        W[index-1]=w;
+    }
+    return count;
+}

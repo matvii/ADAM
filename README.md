@@ -64,5 +64,9 @@ Matti Viikinkoski (matti.viikinkoski@gmail.com)
 - Stability of the subdivision surface fitting is slightly improved 
 - Some minor tweaks and fixes
 
+####22.2.2017
+- Support for sparse photometry
+- Weighting of individual lightcurves
+
 ####TODO
 - Integration of thermal modelling stuff into the main program

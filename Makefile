@@ -10,17 +10,19 @@ else
 CFLAGS=-O2  -std=c99 -fopenmp  -march=native -pthread 
 endif
 ifdef MKLROOT
-LDLIBS=-L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core  -L$(MKLROOT)/../compiler/lib/intel64 -liomp5 -lpthread -lm -ldl -fopenmp  wcstools-3.9.2/libwcs/libwcs.a -I$(MKLROOT)/include
-CFLAGS:=$(CFLAGS) -I$(MKLROOT)/include
+LDLIBS=-L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core  -L$(MKLROOT)/../compiler/lib/intel64 -liomp5 -lpthread -lm -ldl -fopenmp  wcstools-3.9.2/libwcs/libwcs.a -I$(MKLROOT)/include 
+CFLAGS:=$(CFLAGS) -I$(MKLROOT)/include 
 DEFINE=USE_MKL
 else
-LDLIBS=-lm  -lreflapacke -lreflapack -latlas -latlcblas -fopenmp  wcstools-3.9.2/libwcs/libwcs.a
+LDLIBS=-lm  -lreflapacke -lreflapack -latlas -latlcblas -fopenmp  wcstools-3.9.2/libwcs/libwcs.a 
 #LDLIBS=-lm  -llapacke -llapack -lblas -lgslcblas -fopenmp -I/usr/include/lapacke wcstools-3.9.2/libwcs/libwcs.a
+LDLIBS=-lm  -lopenblas -fopenmp -lpthread wcstools-3.9.2/libwcs/libwcs.a
+
 DEFINE=NO_MKL
 endif
 CPPFLAGS=$(addprefix -D,$(DEFINE))
 #LDLIBS=-L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core  -L$(MKLROOT)/../compiler/lib/intel64 -liomp5 -lpthread -lm -ldl -fopenmp  wcstools-3.9.2/libwcs/libwcs.a
-LIBS=phase_function.o read_occ.o Fit_Occ.o calculate_OCs.o find_chord.o  SH.o generate_sphere.o fit_subdiv_model_to_LC_AO_QR.o parse_ini.o calculate_lcs.o Calc_FTC.o calculate_lcurve.o dihedral_angle.o dihedral_angle_reg.o utils.o convex_reg.o area_reg.o sqrt3_subdiv.o  triangulate_sphere.o matrix_ops.o rotate.o is_in_triangle.o FacetsOverHorizon.o FindActualBlockers.o Calculate_AOs.o Calculate_AO.o calc_image_fft_sinc.o read_ephm_data.o process_ao_images.o octantoid_reg.o octantoid_to_trimesh.o fit_oct_model_to_LC_AO.o process_rd_images.o calc_image_fft_unnormed.o Calculate_RDs.o Calculate_Range_Doppler.o readfits_rd.o kiss_fftndr.o kiss_fft.o kiss_fftr.o kiss_fftnd.o readfits.o hapke_brightness.o
+LIBS=phase_function.o read_occ.o Fit_Occ.o calculate_OCs.o find_chord.o  SH.o generate_sphere.o fit_subdiv_model_to_LC_AO_QR.o parse_ini.o calculate_lcs.o Calc_FTC.o calculate_lcurve.o dihedral_angle.o dihedral_angle_reg.o utils.o convex_reg.o area_reg.o sqrt3_subdiv.o  triangulate_sphere.o matrix_ops.o rotate.o is_in_triangle.o FacetsOverHorizon.o FindActualBlockers.o Calculate_AOs.o Calculate_AO.o calc_image_fft_sinc.o read_ephm_data.o process_ao_images.o octantoid_reg.o octantoid_to_trimesh.o fit_oct_model_to_LC_AO.o process_rd_images.o calc_image_fft_unnormed.o Calculate_RDs.o Calculate_Range_Doppler.o readfits_rd.o kiss_fftndr.o kiss_fft.o kiss_fftr.o kiss_fftnd.o readfits.o hapke_brightness.o soft_maxdimz.o
 
 adam:	adam.c $(LIBS)
 	$(CC) $(CPPFLAGS) $(CFLAGS)    adam.c $(LIBS)  $(LDLIBS) -Iiniparser/src -Liniparser -liniparser -o adam

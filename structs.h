@@ -5,7 +5,8 @@ typedef struct LC
         int nlc; /*number of lightcurves*/
         int *nobs; /*Array, number of points per lightcurve*/
         int *rel; /*Relative or calibrated?*/
-        int calib; /*Set to one if there are any calibrated lightcurves*/
+        int ncalib; /*Number of calibrated lightcurves*/
+        int calib;
         int ntotal; /*Total number of points*/
         double **lcs; /*Observations, lcs[n-1] points to observations of nth curve*/
         double **E; /*View directions*/

@@ -37,8 +37,7 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
   double *tb;
   
   double c=0.1;
-  if(params!=NULL)
-      c=params[3];
+ 
 
   double In,dIx1,dIx2,dIx3,dIy1,dIy2,dIy3,dIz1,dIz2,dIz3;
   double x1,y1,z1,x2,y2,z2,x3,y3,z3;
@@ -306,6 +305,7 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
         {
             phase=phase_function(dir,dir0,params,dphase);
             
+            
         }
         else
             phase=1;
@@ -334,10 +334,10 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
 	//Derivatives wrt phase params
         if(params!=NULL)
         {
-            dbrightp[e*4]=dbrightp[e*4]+dphase[0]*In*area[j];
-            dbrightp[e*4+1]=dbrightp[e*4+1]+dphase[1]*In*area[j];
-            dbrightp[e*4+2]=dbrightp[e*4+2]+dphase[2]*In*area[j];
-            dbrightp[e*4+3]=dbrightp[e*4+3]+alb_term*mu*mu0*phase*area[j];
+            dbrightp[e*3]=dbrightp[e*3]+dphase[0]*In*area[j];
+            dbrightp[e*3+1]=dbrightp[e*3+1]+dphase[1]*In*area[j];
+            dbrightp[e*3+2]=dbrightp[e*3+2]+dphase[2]*In*area[j];
+            //dbrightp[e*4+3]=dbrightp[e*4+3]+In*area[j]*exp(params[3]);
         }
         //If not HAPKE, then calculate derivates of LSL wrt mu,mu0
         if(INI_HAPKE==NULL)
@@ -393,6 +393,7 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
        
       } /*End of e, nE*/
    double sum_paramc=0;
+   double sum_param0=0,sum_param2=0,sum_param1=0;
      double sumbright2=0;
       sumbright=sum_vector(tb,nE);
       sumbright2=pow(sumbright,2);
@@ -405,7 +406,10 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
 	sbeta=sbeta+dBb[j];
 	slambda=slambda+dBl[j];
 	somega=somega+dBo[j];
-        sum_paramc+=dbrightp[j*4+3];
+        sum_param0+=dbrightp[j*3];
+        sum_param1+=dbrightp[j*3+1];
+        sum_param2+=dbrightp[j*3+2];
+        //sum_paramc+=dbrightp[j*4+3];
       }
       
       
@@ -441,8 +445,10 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
       if(params!=NULL)
           for(int j=0;j<nE;j++)
         {
-            
-            dbrightp[j*4+3]=nE*(dbrightp[j*4+3]*sumbright-tb[j]*sum_paramc)/pow(sumbright,2);
+            dbrightp[j*3]=nE*(dbrightp[j*3]*sumbright-tb[j]*sum_param0)/sumbright2;
+            dbrightp[j*3+1]=nE*(dbrightp[j*3+1]*sumbright-tb[j]*sum_param1)/sumbright2;
+            dbrightp[j*3+2]=nE*(dbrightp[j*3+2]*sumbright-tb[j]*sum_param2)/sumbright2;
+            //dbrightp[j*4+3]=nE*(dbrightp[j*4+3]*sumbright-tb[j]*sum_paramc)/sumbright2;
       }
       if(albedo==1)
       {
