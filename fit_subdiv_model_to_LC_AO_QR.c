@@ -231,6 +231,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     int OCoffsetcolpos=3*nvert+3+nAOoffsets+nAOscale;
     int Chordoffsetcolpos=3*nvert+3+nAOoffsets+nAOscale+nOCoffsets;
     int OCrowpos=nLCtotal+nAOtotal;
+    int AOscalepos=3*nvert+3+nAOoffsets;
     int RDoffsetcolpos=3*nvert+3+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets;
     int RDscalecolpos=3*nvert+3+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets;
     int RDrowpos=nLCtotal+nAOtotal+nOCtotal;
@@ -513,8 +514,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             mult_with_cons(dCRdv,1,3*nvert+3,-cW);
             ANGres*=angW;
             mult_with_cons(dANGdv,1,3*nvert+3,-angW);
-            mult_with_cons(Ares,1,nfacn,aW);
-            mult_with_cons(dAdv,nfacn,3*nvert+3,-aW);
+           
              
             
             //Build the res vector and matrix
