@@ -65,7 +65,7 @@ Matti Viikinkoski (matti.viikinkoski@gmail.com)
 - Some minor tweaks and fixes
 
 ####22.2.2017
-- Support for sparse photometry
+- Support for sparse photometry (See 135_subdiv_sparse.ini)
 - Weighting of individual lightcurves
 
 ####TODO
