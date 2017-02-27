@@ -380,7 +380,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
        // printf("before AOs\n");
         if(INI_HAVE_AO)
         {
-        Calculate_AOs(tlist,vlist,nfac,nvert,angles,AO,AOoffset,NULL,nvert,nvert,NULL,AOscale,AOout,AOdv,AOds,1);
+        Calculate_AOs(tlist,vlist,nfac,nvert,angles,AO,AOoffset,NULL,nvert,nvert,INI_AO_WEIGHT,AOscale,AOout,AOdv,AOds,1);
         //Convert to derivative wrt params a
         matrix_prod(AOdv,nAOtotal,nAOcolst,D2,nAOcols,AOda); //AOda is nAOtotal x (nAOcols)
 //         write_matrix_file("/tmp/AOda.txt",AOda,nAOtotal,nAOcols);
@@ -599,7 +599,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         }
         if(INI_HAVE_AO)
         {
-            Calculate_AOs(tlist,vlist2,nfac,nvert,angles2,AO,AOoffset2,NULL,nvertn,nvert,NULL,AOscale2,AOout,AOdv,NULL,0);
+            Calculate_AOs(tlist,vlist2,nfac,nvert,angles2,AO,AOoffset2,NULL,nvertn,nvert,INI_AO_WEIGHT,AOscale2,AOout,AOdv,NULL,0);
             mult_with_cons(AOout,1,nAOtotal,AOW);
             set_submatrix(S,1,Slength,AOout,1,nAOtotal,0,nLCtotal);
         }
