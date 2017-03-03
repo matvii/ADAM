@@ -16,6 +16,8 @@ void readfits_rd(char* filename,double **buffer,int x0,int y0,int nx,int ny,doub
     int nlog;
     int naxis1,naxis2;
     float *fimage;
+    double *dimage;
+    int bitpix=0;
     char keyword[]="JDMEAN";
     int lhead,nbhead;
     head=fitsrhead(filename,&lhead,&nbhead);
@@ -27,13 +29,18 @@ void readfits_rd(char* filename,double **buffer,int x0,int y0,int nx,int ny,doub
         *cdelt2=0;
     hgeti4(head,"NAXIS1",&naxis1);
     hgeti4(head,"NAXIS2",&naxis2);
+    hgeti4(head,"BITPIX",&bitpix);
     if(nx==0 || ny==0 || nx>naxis1 || ny>naxis2)
     {
     *xsize=naxis1;
     *ysize=naxis2;
     imsize=naxis1*naxis2;
     image=fitsrimage(filename, nbhead, head);
-    fimage=(float *)image;
+    if(bitpix!=-64)
+        fimage=(float *)image;
+    else
+        dimage=(double *)image;
+    
     }
     else
     {
@@ -43,12 +50,19 @@ void readfits_rd(char* filename,double **buffer,int x0,int y0,int nx,int ny,doub
     image=fitsrsect(filename,head,nbhead,x0,y0,nx,ny,nlog);
     //printf("x0:%d y0: %d\n",x0,y0);
     //printf("Input readfits: %d %d %d %d\n",x0,y0,nx,ny);
-    fimage=(float *)image;
+    if(bitpix!=-64)
+        fimage=(float *)image;
+    else
+        dimage=(double *)image;
         
     }
     buf=calloc(imsize,sizeof(double));
+      if(bitpix!=-64)
       for(int j=0;j<imsize;j++)
-         buf[j]=fimage[j];
+         buf[j]=fmax(fimage[j],0);
+    else
+        for(int j=0;j<imsize;j++)
+            buf[j]=fmax(dimage[j],0);
       //NOTE: HERE WE flip and transpose the image
       flip_dim(buf,*ysize,*xsize,2);
       matrix_transpose(buf,*ysize,*xsize);
