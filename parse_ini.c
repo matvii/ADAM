@@ -13,6 +13,9 @@ int     INI_HAVE_AO=0;
 int     INI_HAVE_OC=0;
 int     INI_HAVE_HF=0;
 int     INI_HAVE_RD=0;
+int     INI_HAVE_CNTR=0;
+int     INI_CNTR_IS_SPARSE=0;
+int     INI_CNTR_RAD=0;
 double INI_ANGLE_B=NAN;
 double INI_ANGLE_L=NAN;
 double INI_ANGLE_P=NAN;
@@ -49,7 +52,7 @@ double INI_RW=0;
 double INI_ZMAX_WEIGHT=0;
 double INI_ZMAX=10;
 double INI_CHRDW=0;
-
+double INI_CNTR_WEIGHT=0;
 double INI_LAMBDAINC=10;
 double INI_LAMBDADEC=10;
 double INI_LAMBDAMAX=1e6;
@@ -69,6 +72,7 @@ AOstruct *INI_AO;
 LCstruct *INI_LC;
 OCstruct *INI_OC;
 RDstruct *INI_RD;
+CNTRstruct *INI_CNTR;
 double *INI_CHORD_OFFSET=NULL;
 int INI_MASK_SET=0;
 int *INI_FREE_CHORD_LIST=NULL;
@@ -210,6 +214,8 @@ int parse_ini(char *filename)
     INI_CHRDW=atof(s);
     s=iniparser_getstring(ini,"Optimization:AlbRegWeight","1");
     INI_ALBREGW=atof(s);
+    s=iniparser_getstring(ini,"Optimization:CNTRWeight","1");
+    INI_CNTR_WEIGHT=atof(s);
     //Parse Data
     s=iniparser_getstring(ini,"Optimization:RestrictZCoord",NULL);
         if(s!=NULL)
@@ -225,6 +231,9 @@ int parse_ini(char *filename)
         INI_HAVE_AO=1;
         nAO=atoi(s);
     }
+    s=iniparser_getstring(ini,"Data:UseCNTR","0");
+    if(atoi(s)>0)
+        INI_HAVE_CNTR=1;
     s=iniparser_getstring(ini,"Data:UseOC","0");
     INI_HAVE_OC=atoi(s);
     s=iniparser_getstring(ini,"Data:UseRD","0");
@@ -316,14 +325,11 @@ int parse_ini(char *filename)
     double OCup[3];
     //Ephm section
     s=iniparser_getstring(ini,"Ephm:EphFile",NULL);
-    if(s==NULL)
+    if(s!=NULL)
     {
-         perror("Ephemeris information required. Set file in Ephm");
-        exit(-1);
-    }
     ephmfile=calloc(strlen(s)+1,sizeof(char));
     strcpy(ephmfile,s);
-   
+    }
     s=iniparser_getstring(ini,"Output:LCOutputFile",NULL);
     if(s!=NULL)
     {
@@ -368,6 +374,27 @@ int parse_ini(char *filename)
     {
         INI_ALBEDO_OUT_FILE=calloc(strlen(s)+1,sizeof(char));
         strcpy(INI_ALBEDO_OUT_FILE,s);
+    }
+    if(INI_HAVE_CNTR)
+    {
+        s=iniparser_getstring(ini,"CNTR:Type","Cart");
+        int type=0;
+        int rotate=0;
+        if(strcmp(s,"Ang")==0)
+            type=1;
+        s=iniparser_getstring(ini,"CNTR:Rotate","1");
+        rotate=atoi(s);
+        s=iniparser_getstring(ini,"CNTR:Sparse","1");
+        INI_CNTR_IS_SPARSE=atoi(s);
+        s=iniparser_getstring(ini,"CNTR:CRFile",NULL);
+        INI_CNTR=read_contour(s,INI_MIN_TIM,type,rotate);
+        s=iniparser_getstring(ini,"CNTR:FitAlg","Cart");
+        if(strcmp(s,"Rad")==0)
+        {
+            INI_CNTR_RAD=1;
+            INI_CNTR_IS_SPARSE=1;
+        }
+            
     }
     
     if(nAO>0)

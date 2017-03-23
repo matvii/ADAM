@@ -4,7 +4,7 @@
 #include"matrix_ops.h"
 #include"structs.h"
 #include"globals.h"
-void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
+void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD,CNTRstruct *CR)
 {
     //First initialize the initial shape
     int *tlist;
@@ -110,6 +110,34 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
             nAOscale=nAO;
         }
     }
+    int nCRtotal=0;
+    int nCRcolst=0;
+    int nCRcols=0;
+    int nCRoffsets=0;
+    int nCR=0;
+    double* CRoffset,*CRoffset2;
+    double *CRdv,*CRda;
+    double *CRout;
+    double *CRdoff;
+    double CRfit;
+    if(INI_HAVE_CNTR)
+    {
+        if(INI_CNTR_IS_SPARSE)
+            nCRtotal=(CR->ntotal);
+        else
+        nCRtotal=(CR->ntotal)+nvert*CR->ncont;
+        nCRcolst=3*nvert+3; //Columns in derivative matrix 3*vertices+angles
+        nCRcols=alength+3;
+        nCRoffsets=2*(CR->ncont);
+        nCR=CR->ncont;
+        CRout=calloc(nCRtotal,sizeof(double));
+        CRoffset=calloc(2*nCR,sizeof(double));
+        CRoffset2=calloc(2*nCR,sizeof(double));
+        CRdv=calloc(nCRtotal*(3*nvert+3),sizeof(double)); //derivative matrix, vertices+angles
+        CRda=calloc(nCRtotal*(nCRcols),sizeof(double));
+        CRdoff=calloc(nCRtotal*2*nCR,sizeof(double)); //derivative matrix, offsets
+    }
+    
     //Occultation data
     int nOCtotal=0;
     int nOCcols=0;
@@ -224,8 +252,8 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
        dzmda=calloc(alength+3,sizeof(double));
    }
     //Number of rows in J
-    Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+1+softmaxz+nvectorreg+nAlbreg; //LC points+AO points+OC points+RD points+ convex reg+oct reg+dihedral+[softmaxz]+[vector reg for free chords]
-    int nJcols=alength+3+ncalib+nAlbedo+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp;
+    Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+1+softmaxz+nvectorreg+nAlbreg+nCRtotal; //LC points+AO points+OC points+RD points+ convex reg+oct reg+dihedral+[softmaxz]+[vector reg for free chords]
+    int nJcols=alength+3+ncalib+nAlbedo+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp+nCRoffsets;
     S=calloc(Slength,sizeof(double)); 
     J=calloc(Slength*(nJcols),sizeof(double));
     int padding=3+nAOoffsets; 
@@ -246,6 +274,8 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
     int Vectorregpos=Zmaxregpos+softmaxz;
      int Albregpos=Vectorregpos+nvectorreg;
      int phasecolpos=alength+3+nAlbedo+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp;
+     int CRrowpos=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+1+softmaxz+nvectorreg+nAlbreg;
+     int CRoffsetcolpos=alength+3+ncalib+nAlbedo+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp;
     double *LCout,*dLCdv,*rhs,*X,*dLCda,*dLCdp=NULL;
     LCout=calloc(nLCtotal,sizeof(double));
     dLCdv=calloc((nLCtotal)*(3*nvert+3),sizeof(double));
@@ -397,6 +427,20 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
             set_submatrix(J,Slength,nJcols,AOds,nAOtotal,nAO,nLCtotal,nAOcols);
         }
         }
+        if(INI_HAVE_CNTR)
+            {
+                
+                Calculate_Contours(tlist,vlist,nfac,nvert,angles,CR,CRoffset,NULL,nvert,nvert,CRout,CRdv,CRdoff);
+               matrix_prod(CRdv,nCRtotal,nCRcolst,D1,nCRcols,CRda);
+                mult_with_cons(CRout,1,nCRtotal,INI_CNTR_WEIGHT);
+                mult_with_cons(CRda,nCRtotal,nCRcols,-INI_CNTR_WEIGHT);
+                mult_with_cons(CRdoff,nCRtotal,nCRoffsets,-INI_CNTR_WEIGHT);
+                set_submatrix(S,1,Slength,CRout,1,nCRtotal,0,CRrowpos);
+                set_submatrix(J,Slength,nJcols,CRda,nCRtotal,nCRcols,CRrowpos,0);
+                set_submatrix(J,Slength,nJcols,CRdoff,nCRtotal,nCRoffsets,CRrowpos,CRoffsetcolpos);
+                matrix_transprod(CRout,nCRtotal,1,&CRfit);
+              
+            }
         if(INI_HAVE_OC)
         {
             if(INI_FREE_CHORD_NMR>0)
@@ -495,6 +539,8 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
         printf("Round: %d chisq: %4.2f LCfit: %4.2f AOfit: %4.2f OCfit: %4.2f RDfit: %4.2f Convex reg: %4.2f Octantoid reg: %4.2f Dihedral reg: %4.2f",k,chisq,LCfit,AOfit,OCfit,RDfit,pow(CRres,2),pow(Ores,2),pow(ANGres,2)); 
        //printf("scale: %f %f\n",AOscale[0],AOscale[1]);
         //Construct Jacobian matrix
+          if(INI_HAVE_CNTR>0)
+                printf(" CNTRfit: %4.2f",CRfit);
          if(INI_ZMAX_WEIGHT>0)
                 printf(" Zmax reg: %f\n",pow(zm,2));
             else
@@ -555,6 +601,8 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
        if(INI_AO_SCALING)
            matrix_plus2(AOscale,1,nAO,&X[alength+3+nAOoffsets],AOscale2);
        }
+       if(INI_HAVE_CNTR)
+           matrix_plus2(CRoffset,1,nCRoffsets,&X[CRoffsetcolpos],CRoffset2);
        if(INI_HAVE_OC)
        {
            matrix_plus2(OCoffset,1,nOCoffsets,&X[OCoffsetcolpos],OCoffset2);
@@ -614,6 +662,14 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                 S[Vectorregpos]=INI_CHRDW*vectorreg;
             }
         }
+           if(INI_HAVE_CNTR)
+        {
+            Calculate_Contours(tlist,vlist2,nfac,nvert,angles2,CR,CRoffset2,NULL,nvert,nvert,CRout,CRdv,CRdoff);
+            mult_with_cons(CRout,1,nCRtotal,INI_CNTR_WEIGHT);
+            set_submatrix(S,1,Slength,CRout,1,nCRtotal,0,CRrowpos);
+             matrix_transprod(CRout,nCRtotal,1,&CRfit);
+             
+        }
         if(INI_HAVE_RD)
         {
           Calculate_RDs(tlist,vlist2,nfac,nvert,angles2,RD,RDoffset2,NULL,nvert,nvert,INI_RD_WEIGHT,RDscale2,RDexp2,RDout,RDdv,RDdoff,RDdscale,RDdexp,0);  
@@ -644,6 +700,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
        
         matrix_transprod(S,Slength,1,&chisq2);
          matrix_transprod(AOout,nAOtotal,1,&AOfit);
+        
         printf("Round: %d chisq2: %7.2f\n",k+1,chisq2);
       
        if(chisq2<chisq)
@@ -652,13 +709,17 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
             dec=chisq-chisq2;
             count++;
            printf("decreased!\n");
+          
            memcpy(a,a2,sizeof(double)*(alength));
            if(INI_HAVE_AO)
            {
            memcpy(AOoffset,AOoffset2,sizeof(double)*(nAOoffsets));
+           
           if(INI_AO_SCALING)
               memcpy(AOscale,AOscale2,sizeof(double)*nAO);
            }
+           if(INI_HAVE_CNTR)
+                memcpy(CRoffset,CRoffset2,sizeof(double)*nCRoffsets);
            if(INI_HAVE_OC)
            {
                memcpy(OCoffset,OCoffset2,sizeof(double)*(nOCoffsets));
@@ -716,6 +777,18 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                      print_matrix(Chordoffset,1,nChordoffsets);
                  }
         }
+        if(INI_HAVE_CNTR)
+            {
+                printf("Contour offsets:\n");
+                if(INI_CNTR_RAD)
+                {
+                    for(int k=0;k<nCRoffsets;k++)
+                        printf("%.2f ",-CRoffset[k]);
+                    printf("\n");
+                }
+                    else
+                print_matrix(CRoffset,1,nCRoffsets);
+            }
         
       //  printf("Offsets: %f %f %f %f\n",offset[0],offset[1],offset[2],offset[3]);
       printf("Writing shape information to %s\n",OUT_SHAPE_FILE);
@@ -789,8 +862,11 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                 }  
                 //Shape parameters
                 fprintf(fp,"#Shape:\n");
-                 fprintf(fp,"#LMAX: %d\n",INI_LMAX);
-                 fprintf(fp,"#Params: %d\n",alength);
+                 fprintf(fp,"#LMAX\n");
+                 fprintf(fp,"%d\n",INI_LMAX);
+                 fprintf(fp,"#ParamLength\n");
+                 fprintf(fp,"%d\n",alength);
+                 fprintf(fp,"#aParams\n");
                 for(int j=0;j<alength;j++)
                     fprintf(fp,"%.4f ",a[j]);
                 fprintf(fp,"\n");
@@ -824,6 +900,13 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
                         fprintf(fp,"%.4f ",Chordoffset[j]);
                     fprintf(fp,"\n");
                 }
+                 if(INI_HAVE_CNTR)
+            {
+                fprintf(fp,"#CRoffsets: %d\n",nCRoffsets);
+                for(int j=0;j<nCRoffsets;j++)
+                    fprintf(fp,"%.4f",CRoffset[j]);
+                fprintf(fp,"\n");
+            }
                 if(INI_HAVE_RD)
                 {
                     fprintf(fp,"#RDoffset: %d\n",nRDoffsets);

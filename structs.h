@@ -86,4 +86,18 @@ typedef    struct OC
         double **etime; /*errors in observation times points to nobsx2 array*/
         int **type; /*chord types, points to noc array*/
     } OCstruct;
+    
+typedef struct CNTR
+{
+    int ncont; /*Number of contours*/
+    int *nobs; /*Array, number of points per contour*/
+    int ntotal; /*Total number of points*/
+    double **datax; /*Points to an array with nobs[index] doubles, x-coordinates of contours*/
+    double **datay; /*Points to an array with nobs[index] doubles, y-coordinates of contours*/
+    double *TIME; /*observation times, ncont array*/
+    double *E; /*view directions ncontx3 array, normalized to unit*/
+    double *E0; /*sun directions ncontx3 array, normalized to unit*/
+    double *up; /*camera up direction ncontx3 array, normalized to unit*/
+    double *distance; /*distance in km*/
+} CNTRstruct;
 #endif

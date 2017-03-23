@@ -68,5 +68,8 @@ Matti Viikinkoski (matti.viikinkoski@gmail.com)
 - Support for sparse photometry (See 135_subdiv_sparse.ini)
 - Weighting of individual lightcurves
 
+####23.3.2017
+- Support for contour(full or sparse)  fitting, see contour.ini for an example
+
 ####TODO
 - Integration of thermal modelling stuff into the main program

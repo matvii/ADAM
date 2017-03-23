@@ -3,6 +3,7 @@
 
 int main(int argc, char *argv[])
 {
+    
     char *inifile;
     if(argc==1)
         parse_ini("adam.ini");
@@ -14,9 +15,9 @@ int main(int argc, char *argv[])
     //OC debugging:
     
     if(INI_LMAX>0)
-       fit_oct_model_to_LC_AO(INI_LC,INI_AO,INI_OC,INI_RD);
+       fit_oct_model_to_LC_AO(INI_LC,INI_AO,INI_OC,INI_RD,INI_CNTR);
     else
-       fit_subdiv_model_to_LC_AO(INI_LC,INI_AO,INI_OC,INI_RD);
+       fit_subdiv_model_to_LC_AO(INI_LC,INI_AO,INI_OC,INI_RD,INI_CNTR);
 }
     
         

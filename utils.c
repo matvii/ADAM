@@ -127,7 +127,7 @@ int calc_rot_frame(char *fitsfile,double *E,double *up)
     angle1=atan2(sgn*CD12,CD22);
     angle2=atan2(-CD21,sgn*CD11);
    // printf("angle: %f %f\n",angle1*180/PI,angle2*180/PI);
-    if(abs(angle1-angle2)>0.01)
+    if(fabs(angle1-angle2)>0.01)
     {
         fprintf(stderr,"Rotation angle information in %s is inconsistent, set rotation manually\n",fitsfile);
         exit(-1);
@@ -218,7 +218,7 @@ void write_matrix_file(char * str,double *M,int m,int n)
     {
         for(int k=0;k<n;k++)
         {
-            fprintf(fp,"%.10f ",M[j*n+k]);
+            fprintf(fp,"%.6f ",M[j*n+k]);
         }
         if(m>1)
         fprintf(fp,"\n");
@@ -381,11 +381,13 @@ void set_submatrix(double *A,int m0,int n0,double *B,int m1,int n1,int k,int l)
      * Indexing is from 0*/
     if(k+m1-1>=m0)
     {
+        printf("Matrix size %d %d, submatrix %d %d, at %d %d\n",m0,n0,m1,n1,k,l);
         puts("Error: index too large in set_submatrix\n");
         exit(1);
     }
     if(l+n1-1>=n0)
     {
+        printf("Matrix size %d %d, submatrix %d %d, at %d %d\n",m0,n0,m1,n1,k,l);
         puts("Error: index too large in set_submatrix\n");
         exit(1);
     }
@@ -1328,4 +1330,199 @@ int read_weight_file(char *filename,double *W,int max_size)
         W[index-1]=w;
     }
     return count;
+}
+struct CNTR *read_contour(char *filename,double min_tim,int type,int rotate)
+{
+    /*
+     * Read contours from a file
+     * min_tim is substracted from observation times
+     * type=0 if contours are given as x-y coordinates
+     * type=1 if contours are radius-angle
+     * rotate=0: Ignore tilt, assume oriented north up in eq frame
+     * rotate=1: Use tilt, assume ecliptic frame
+     * ARE TIMES LT-CORRECTED??
+     */
+    struct CNTR *C;
+    C=malloc(sizeof(struct CNTR));
+    FILE *fid;
+    int ncont;
+    fid=fopen(filename,"r");
+    double deg2rad=PI/180.0;
+    double angle,radius;
+     char delims[]=" \t\r\n\f\v,";
+     char *token;
+     char *buffer,*filebuff;
+     double time,tilt,pixscale;
+     double scale;
+     double lE,lE0;
+     double x,y;
+     int nobs;
+     buffer=malloc(10000);
+     double E[3],E0[3];
+     int count=0;
+     if(fid==NULL)
+    {
+        perror("Error opening the contour file\n");
+        exit(-1);
+    }
+    fgets(buffer,2048,fid);
+     if(sscanf(buffer,"%d",&ncont)==0) /*Total number of contours*/
+  {
+    fprintf(stderr,"Error reading contour file (total number of contours)!");
+      exit(-1);
+  }
+  (*C).ncont=ncont;
+  (*C).nobs=calloc(ncont,sizeof(int));
+  (*C).datax=calloc(ncont,sizeof(double*));
+  (*C).datay=calloc(ncont,sizeof(double*));
+  (*C).TIME=calloc(ncont,sizeof(double));
+  (*C).E=calloc(3*ncont,sizeof(double));
+  (*C).E0=calloc(3*ncont,sizeof(double));
+  (*C).up=calloc(3*ncont,sizeof(double));
+  (*C).distance=calloc(ncont,sizeof(double));
+  //Loop over contours
+  for(int j=0;j<ncont;j++)
+  {
+    fgets(buffer,2048,fid);
+     
+      if(sscanf(buffer,"%lf %lf %lf",E0,E0+1,E0+2)!=3)
+          {
+            fprintf(stderr,"Error reading E0 in the contour file!\n");
+            exit(-1);
+          }
+      fgets(buffer,2048,fid);    
+    if(sscanf(buffer,"%lf %lf %lf",E,E+1,E+2)!=3)
+          {
+            fprintf(stderr,"Error reading E in the contour file!\n");
+            exit(-1);
+        }
+       fgets(buffer,2048,fid);
+    
+    if(sscanf(buffer,"%lf %lf",&time,&tilt)!=2)
+          {
+            fprintf(stderr,"Error reading (time,tilt) in the contour file!\n");
+            exit(-1);
+        }
+         fgets(buffer,2048,fid);
+        if(sscanf(buffer,"%lf",&pixscale)!=1)
+          {
+            fprintf(stderr,"Error reading pixscale in the contour file!\n");
+            exit(-1);
+        }
+         fgets(buffer,2048,fid);
+        if(sscanf(buffer,"%d",&nobs)!=1)
+          {
+            fprintf(stderr,"Error reading the number of points in the contour file!\n");
+            exit(-1);
+        }
+        lE=NORM(E);
+        lE0=NORM(E0);
+        (*C).datax[j]=calloc(nobs,sizeof(double));
+        (*C).datay[j]=calloc(nobs,sizeof(double));
+        (*C).nobs[j]=nobs;
+        (*C).E[3*j]=E[0]/lE;
+        (*C).E[3*j+1]=E[1]/lE;
+        (*C).E[3*j+2]=E[2]/lE;
+        (*C).E0[3*j]=E0[0]/lE0;
+        (*C).E0[3*j+1]=E0[1]/lE0;
+        (*C).E0[3*j+2]=E0[2]/lE0;
+        if(rotate==1)
+        {
+         (*C).up[3*j]=0;
+         (*C).up[3*j+1]=0;
+         (*C).up[3*j+2]=1;
+        }
+        else if(rotate==0)
+        {
+         (*C).up[3*j+0]=0;
+                 (*C).up[3*j+1]=0.397748474527011;
+                 (*C).up[3*j+2]=0.917494496447491;
+                 tilt=0;
+        }
+        else
+        {
+            fprintf(stderr,"Unknown rotate value in read_contour call\n");
+            exit(-1);
+        }
+        (*C).TIME[j]=time-min_tim;
+        (*C).distance[j]=lE;
+        count=count+nobs;
+        //Now we will read the actual contour points
+        
+        //Scale to km
+        scale=1.0/(lE*pixscale*149597871)*180/PI*3600;
+        
+        if(type==0) //We are reading x-y coordinate pairs
+        {
+        for(int k=0;k<nobs;k++)
+        {
+            fgets(buffer,2048,fid);
+            
+           if(sscanf(buffer,"%lf %lf",&x,&y)!=2)
+          {
+            fprintf(stderr,"Error parsing contour point  in the contour file!(contour %d, index %d)\n",j,k);
+            exit(-1);
+          }
+          (*C).datax[j][k]=(cos(tilt*deg2rad)*x-sin(tilt*deg2rad)*y)/scale;
+          (*C).datay[j][k]=(cos(tilt*deg2rad)*y+sin(tilt*deg2rad)*x)/scale;
+        }
+        }
+        else
+        {
+            for(int k=0;k<nobs;k++)
+        {
+            fgets(buffer,2048,fid);
+           if(sscanf(buffer,"%lf %lf",&angle,&radius)!=2)
+          {
+            fprintf(stderr,"Error parsing (angle,radius) point  in the contour file!(contour %d, index %d)\n",j,k);
+            exit(-1);
+          }
+          
+          x=radius*cos(angle); //IN RADIANS?
+          y=radius*sin(angle);
+          (*C).datax[j][k]=(cos(tilt*deg2rad)*x-sin(tilt*deg2rad)*y)/scale;
+          (*C).datay[j][k]=(cos(tilt*deg2rad)*y+sin(tilt*deg2rad)*x)/scale;
+        }
+        }
+            
+  }
+   free(buffer);
+  fclose(fid);
+  (*C).ntotal=count;
+  return C;
+}
+  double minv(double *vlist,int nvert,int index)
+{
+    double min=1E15;
+    for(int j=0;j<nvert;j++)
+    {
+        if(vlist[j*3+index]<min)
+            min=vlist[j*3+index];
+    }
+    return min;
+}
+double maxv(double *vlist,int nvert,int index)
+{
+    double max=-1E15;
+    for(int j=0;j<nvert;j++)
+    {
+        if(vlist[j*3+index]>max)
+            max=vlist[j*3+index];
+    }
+    return max;
+}
+int find_closest(double *p,double *plistx,double *plisty,int n)
+{
+    int index=-1;
+    double dist=1e9,dist2;
+    for(int j=0;j<n;j++)
+    {
+        dist2=pow(plistx[j]-p[0],2)+pow(plisty[j]-p[1],2);
+        if(dist2<dist)
+        {
+            dist=dist2;
+            index=j;
+        }
+    }
+    return index;
 }
