@@ -1,7 +1,7 @@
 #Set CC if icc if you want to use icc
 CC=gcc
 #Location of INTEL math kernel library (if it exists)
-MKLROOT=/opt/intel/compilers_and_libraries_2016.2.181/linux/mkl
+#MKLROOT=/opt/intel/compilers_and_libraries_2016.2.181/linux/mkl
 ifeq ($CC,icc)
 CFLAGS=-O2 -std=c99  -qopenmp  -xHost -pthread 
 LD=xild
