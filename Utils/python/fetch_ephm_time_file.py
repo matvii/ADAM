@@ -48,7 +48,25 @@ def get_horizons(tn,asteroid,JD0):
   tn.read_until("[R]edisplay, ? :",2.)
   tn.write("N\n")
   wlist=eph.split()
-  V=np.array([float(wlist[6]),float(wlist[7]),float(wlist[8]),JD0-float(wlist[12])])
+  xc=wlist.index('X')
+  if wlist[xc+1]=='=':
+      xval=wlist[xc+2]
+  else:
+          xval=wlist[xc+1].replace('=','')
+  yc=wlist.index('Y')
+  if wlist[yc+1]=='=':
+      yval=wlist[yc+2]
+  else:
+          yval=wlist[yc+1].replace('=','')
+  zc=wlist.index('Z')
+  if wlist[zc+1]=='=':
+      zval=wlist[zc+2]
+  else:
+          zval=wlist[zc+1].replace('=','')
+  
+  
+  tc=wlist.index('LT=')+1
+  V=np.array([float(xval),float(yval),float(zval),JD0-float(wlist[tc])])
   return V
 def get_horizons_sun(tn,asteroid,JD0):
   #JD0=2456575.50
@@ -81,7 +99,25 @@ def get_horizons_sun(tn,asteroid,JD0):
   tn.read_until("[R]edisplay, ? :",2.)
   tn.write("N\n")
   wlist=eph.split()
-  V=np.array([float(wlist[6]),float(wlist[7]),float(wlist[8]),JD0-float(wlist[12])])
+  xc=wlist.index('X')
+  if wlist[xc+1]=='=':
+      xval=wlist[xc+2]
+  else:
+          xval=wlist[xc+1].replace('=','')
+  yc=wlist.index('Y')
+  if wlist[yc+1]=='=':
+      yval=wlist[yc+2]
+  else:
+          yval=wlist[yc+1].replace('=','')
+  zc=wlist.index('Z')
+  if wlist[zc+1]=='=':
+      zval=wlist[zc+2]
+  else:
+          zval=wlist[zc+1].replace('=','')
+  
+  
+  tc=wlist.index('LT=')+1
+  V=np.array([float(xval),float(yval),float(zval),JD0-float(wlist[tc])])
   return V
 if len(sys.argv) != 4:
     print '3 arguments required: asteroid number,file with observation dates, outputfile'
