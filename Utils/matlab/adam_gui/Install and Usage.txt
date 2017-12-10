@@ -1,0 +1,13 @@
+This is an utility program to display and interpret ADAM reconstructed models. Still in beta, so CAUTION: this program may produce erroneous results. 
+Install:
+
+1) Build prepare_c by running build_mex
+
+Usage:
+
+1) Start the program by running 'adam_gui.m', select an ini file.
+-3D model coloring corresponds to the surface brightness. Dark blue areas are regions that are either not illuminated or not visible to the observer. Illumination and viewing directions are determined by the currently selected AO observation [pulldown menu].
+-Button 'projections' displays the current AO image and corresponding model 2D projection.
+-Button 'Rotate' shows the 3D model from direction that corresponds to currently selected AO image.
+-Button 'Load OCC' allows loading OCC data file. Offset can be set by first selecting the OCC? from the pulldown menu, inputing x and y values and selecting OCC again.
+-Clicking 3D model by mouse allows selecting a vertex [rotate 3d must not be active in figure toolbar]. 
