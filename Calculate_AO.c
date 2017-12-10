@@ -1,5 +1,6 @@
 #include"utils.h"
 #include"time.h"
+#include"globals.h"
 void dec_vector(double x[3],double y[3],double z[3])
 {
   z[0]=x[0]-y[0];
@@ -7,12 +8,16 @@ void dec_vector(double x[3],double y[3],double z[3])
   z[2]=x[2]-y[2];
 }
 
-void Calculate_AO(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *Eo,double *E0o,double *up,double TIME,double dist,double *freqx,double *freqy,int nfreq,double *offset,double *Fr,double *Fi)
+double Calculate_AO(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *Eo,double *E0o,double *up,double TIME,double dist,double *freqx,double *freqy,int nfreq,double *offset,double *Fr,double *Fi,double *A,double *Alimit)
 {
-//Map triangle to the Range-Doppler frame
+/*
+ * Possibility of setting albedos of AO facets in global variable INI_SET_AO_ALBEDO
+ * If the variable is not null, values are used only in Calculate_AO, NOT in Calculate_AO_deriv
+ */
  double complex *F0;
 // double complex *dFda,*dFdb,*dFdc,*dFdd,*dFdh,*dFdg;
  F0=calloc(nfreq,sizeof(double complex));
+ double AOalb=1;
  double complex *F=calloc(nfreq,sizeof(double complex));
  double M[3][3],dMb[3][3],dMo[3][3],dMl[3][3],Mt[3][3];
  double R[3][3],Rdb[3][3],Rdl[3][3],Rdo[3][3],RT[3][3];
@@ -35,6 +40,18 @@ int j1,j2,j3;
  int *visible;
  int tb1,tb2,tb3; //Indices to the vertices of possible blocker facet
  int blocked=0;
+ //Stuff relating to albedos
+  double la=0;
+ double ha=1; /*These are the albedo limits*/
+ double alb_term=0;
+ double alb=0;
+ int albedo=0;
+ if(A!=NULL)
+ {
+     albedo=1;
+     la=Alimit[0];
+     ha=Alimit[1];
+ }
  //Distance km->arcsec
  dp=1/(dist*149597871.0)*180.0/PI*3600.0;
  visible=calloc(nfac,sizeof(int));
@@ -74,6 +91,8 @@ FindActualBlockers(tlist,vlist,nfac,nvert,E,E0,1,visible);
   //Calculate normal from facet vertices
    //Vertex indices of the current facet
    //Note that C indices from 0, matlab from 1
+   if(INI_SET_AO_ALBEDO!=NULL)
+       AOalb=INI_SET_AO_ALBEDO[j];
    j1=tlist[j*3]-1;
    j2=tlist[j*3+1]-1;
    j3=tlist[j*3+2]-1;
@@ -119,40 +138,47 @@ FindActualBlockers(tlist,vlist,nfac,nvert,E,E0,1,visible);
      //Derivatives wrt angles
    area=0.5*norm;
 
-  //if(j==0)
-   //{
-    // mexPrintf("area: %f mu: %f F0: %f\n",area,mu,F0[0]);
-   //}
-   //mexPrintf("area: %f normal: %f %f %f mu: %f mu0: %f\n",area,n[0],n[1],n[2],mu,mu0); 
-     
+ 
+    //Albedo stuff: 
+   if(albedo==0)
+        {
+            alb=0;
+            alb_term=1;
+        }
+        else
+        {
+            alb=A[j];
+            
+            alb_term=(la+ha)/2+(ha-la)/2*tanh(alb);
+        }
+    
    B=mu0*(1.0/(mu+mu0)+0.1); //mu removed here
      for(int jf=0;jf<nfreq;jf++)
      {
-       //This should be taken outside of the loop
+      
+       F[jf]+=alb_term*AOalb*B*F0[jf];
+      
        
-    //   mexPrintf("scale:%f offset: %f %f\n",scale,creal(cexp(2*PI*I*(offset[0]*freqx[jf]+offset[1]*freqy[jf]))),cimag(cexp(2*PI*I*(offset[0]*freqx[jf]+offset[1]*freqy[jf]))));
-       //FTC=tscale*F0[jf];
-       F[jf]+=B*F0[jf];
       }
-      TB=TB+B*area*mu;
+      TB=TB+alb_term*AOalb*B*area*mu;
     
 
 }
-//mexPrintf("Total brightness: %f\n",TB);  
-//Normalize with total brightness
-//printf("Total brightness: %f \n",TB);
+
 for(int j=0;j<nfreq;j++)
 {
  //   printf("j: %d, F[j] real: %f, F[j] imag: %f\n",j,creal(F[j]),cimag(F[j]));
   Fr[j]=creal(cexp(2.0*PI*I*(offset[0]*freqx[j]+offset[1]*freqy[j]))*F[j]/TB);
   Fi[j]=cimag(cexp(2.0*PI*I*(offset[0]*freqx[j]+offset[1]*freqy[j]))*F[j]/TB);
+  
 }
 free(visible);
 free(F0);
 free(F);
+return TB;
 }
 
-void Calculate_AO_deriv(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *Eo,double *E0o,double *up,double TIME,double dist,double *freqx,double *freqy,int nfreq,double *offset,double *Fr,double *Fi,double *dFdxr,double *dFdxi,double *dFdyr,double *dFdyi,double *dFdzr,double *dFdzi,double *dFdAr,double *dFdAi,double *dFdoffr,double *dFdoffi)
+void Calculate_AO_deriv(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *Eo,double *E0o,double *up,double TIME,double dist,double *freqx,double *freqy,int nfreq,double *offset,double *Fr,double *Fi,double *dFdxr,double *dFdxi,double *dFdyr,double *dFdyi,double *dFdzr,double *dFdzi,double *dFdAr,double *dFdAi,double *dFdoffr,double *dFdoffi,double *A,double *Alimit,double *dAr,double *dAi)
 {
  // clock_t start=clock(),diff;  
   double complex *F=calloc(nfreq,sizeof(double complex));
@@ -191,7 +217,25 @@ void Calculate_AO_deriv(int *tlist,double *vlist,int nfac,int nvert,double *angl
  double vr1[3],vr2[3],vr3[3];
  double v1[3],v2[3],v3[3];
  double complex scale;
-
+//Albedo Stuff
+ double alb=0;
+  double *dSdalb=NULL;
+  double *dAlb=NULL;
+  double *dAlbTB=NULL;
+  int albedo=0;
+  double la,ha,alb_term=0;
+  double albexp=0;
+ if( A!=NULL)
+ {
+     albedo=1;
+     
+     la=Alimit[0];
+     ha=Alimit[1];
+     dAlb=calloc(nfreq*nfac,sizeof(double complex));
+     dAlbTB=calloc(nfac,sizeof(double));
+ }
+ 
+ 
  double dp;
  double B,TB=0.0;
  double norm;
@@ -274,7 +318,20 @@ for(int j=0;j<nfac;j++)
    v2[i]=*(vlist+j2*3+i)*dp;
    v3[i]=*(vlist+j3*3+i)*dp;
    }
-   
+   //Albedo Stuff
+   if(albedo==0)
+        {
+            alb=0;
+            alb_term=1;
+        }
+        else
+        {
+            alb=A[j];
+           // dSdalb[e*numfac+j]=phase*(ha-la)*exp(alb)/pow(exp(alb)+1,2)*Scatt*area[j];
+            alb_term=(la+ha)/2+(ha-la)/2*tanh(alb);
+            
+        }
+    //
     //Calculate Normal derivatives (in the original frame)
     Calculate_Area_and_Normal_Derivative(v1,v2,v3,n,dndx1,dndx2,dndx3,dndy1,dndy2,dndy3,dndz1,dndz2,dndz3,&area,dAdx,dAdy,dAdz);
     
@@ -361,9 +418,12 @@ for(int j=0;j<nfac;j++)
    
      for(int jf=0;jf<nfreq;jf++)
      {
-     F[jf]+=B*F0[jf];
-     
-       
+     F[jf]+=alb_term*B*F0[jf];
+     if(albedo==1)
+     {
+        dAlb[jf*nfac+j]=(ha-la)/2*(1-pow(tanh(alb),2))*B*F0[jf];
+        
+     }
        FTdx[jf*nvert+j1]+=dBdx1*F0[jf]+B*(FTda[jf]*dadx+FTdb[jf]*dbdx);
        FTdx[jf*nvert+j2]+=dBdx2*F0[jf]+B*(FTdc[jf]*dadx+FTdd[jf]*dbdx);
        FTdx[jf*nvert+j3]+=dBdx3*F0[jf]+B*(FTdg[jf]*dadx+FTdh[jf]*dbdx);
@@ -382,8 +442,13 @@ for(int j=0;j<nfac;j++)
        FTdA[jf*3+2]+=dBdo*F0[jf]+B*(FTda[jf]*v1do[0]+FTdb[jf]*v1do[1]+FTdc[jf]*v2do[0]+FTdd[jf]*v2do[1]+FTdg[jf]*v3do[0]+FTdh[jf]*v3do[1]);
      }
     
-      TB=TB+B*area*mu;
- 
+      TB=TB+alb_term*B*area*mu;
+        if(albedo==1)
+        {
+            
+            dAlbTB[j]=(ha-la)/2*(1-pow(tanh(alb),2))*B*area*mu;
+        }
+            
 }
 //mexPrintf("Total brightness: %f\n",TB);  
 //Normalize with total brightness
@@ -415,7 +480,23 @@ for(int j=0;j<nfreq;j++)
   dFdoffr[j*2+1]=creal(2.0*I*PI*freqy[j]*temp);
   dFdoffi[j*2+1]=cimag(2.0*I*PI*freqy[j]*temp);
 }
-
+if(albedo==1)
+{
+    for(int k=0;k<nfac;k++)
+        for(int j=0;j<nfreq;j++)
+        {
+            scale=cexp(2.0*PI*I*(offset[0]*freqx[j]+offset[1]*freqy[j]));
+            
+            temp=scale*F[j]/TB;
+            Fr[j]=creal(temp);
+            Fi[j]=cimag(temp);
+            temp=scale*(dAlb[j*nfac+k]*TB-F[j]*dAlbTB[k])/TB2;
+            dAr[j*nfac+k]=creal(temp);
+            dAi[j*nfac+k]=cimag(temp);
+        }
+        free(dAlb);
+        free(dAlbTB);
+}
 free(FTdx);
 free(FTdy);
 free(FTdz);

@@ -1,11 +1,15 @@
 #ifndef GLOBALS
 #define GLOBALS
-
+extern double INI_COM_WEIGHT;
 extern int     INI_HAVE_LC;
 extern int     INI_HAVE_AO;
 extern int      INI_HAVE_OC;
 extern int      INI_HAVE_HF;
 extern int      INI_HAVE_RD;
+extern double *INI_AO_TOTAL_BRIGHT;
+extern double *INI_AO_REDUCE_ZERO;
+extern int INI_FIT_AO_ALBEDO;
+extern int INI_VERBOSE;
 extern double INI_ANGLE_B;
 extern double INI_ANGLE_L;
 extern double INI_ANGLE_P;
@@ -24,6 +28,8 @@ extern char *INI_OUTPUT_AO_OFFSET;
 extern char *INI_INPUT_RD_OFFSET;
 extern char *INI_OUTPUT_RD_OFFSET;
 extern char *INI_RESTORE_STATE;
+extern char *INI_INPUTOBJSHAPE;
+extern char *INI_INPUTSHAPE;
 double *INI_OC_OFFSET;
 extern char *OUT_LC_FILE;
 extern int USE_ELLIPSOID;
@@ -32,6 +38,7 @@ extern double ELLIPSOID_SEMI_B;
 extern double ELLIPSOID_SEMI_C;
 extern double INI_MIN_TIM;
 extern double INI_RDEXP;
+extern double INI_DW_DEC;
 extern int INI_NROWS;
 extern int NUM_OF_ROUNDS;
 extern double INI_LCW;
@@ -71,6 +78,8 @@ extern double INI_ALBREGW;
 extern int INI_FIX_SHAPE;
 extern int INI_FIX_ANGLES;
 extern int INI_FIX_A1;
+extern int INI_STAR_SHAPED;
+extern int INI_CHECKFIT;
 extern int INI_MASK_SET;
 extern int *INI_PARAMETER_MASK;
 extern double *INI_CHORD_OFFSET;
@@ -84,4 +93,5 @@ extern double INI_NDCHORD_WEIGHT;
 extern int INI_LOGEXP;
 extern int INI_HAVE_CNTR;
 extern double INI_CNTR_WEIGHT;
+extern double *INI_SET_AO_ALBEDO;
 #endif

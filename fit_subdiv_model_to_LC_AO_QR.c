@@ -4,7 +4,7 @@
 #include"matrix_ops.h"
 #include"structs.h"
 #include"globals.h"
-
+double *INI_AO_TOTAL_BRIGHT;
 void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD,CNTRstruct *CR)
 {
     //First initialize the initial shape
@@ -75,7 +75,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     int nAO=0;
     int nAOoffsets=0;
     int nAOscale=0;
-    double *AOoffset,*AOoffset2,*AOout,*AOdv,AOfit=0,*AOscale,*AOscale2,*AOds;
+    double *AOoffset,*AOoffset2,*AOout,*AOdv,AOfit=0,*AOscale,*AOscale2,*AOds,*dAOdAlb,*ao_total_bright;
     if(INI_HAVE_AO)
     {
         nAOtotal=2*(AO->ntotal);
@@ -93,7 +93,8 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         AOfit=0;
         AOscale=NULL;
         AOscale2=NULL;
-        
+        INI_AO_TOTAL_BRIGHT=calloc(nAO,sizeof(double));
+        ao_total_bright=calloc(nAO,sizeof(double));
         
         if(INI_AO_SCALING)
         {
@@ -101,6 +102,10 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             AOscale2=calloc(1*nAO,sizeof(double));
             AOds=calloc(nAOtotal*nAO,sizeof(double));
             nAOscale=nAO;
+        }
+        if(INI_FIT_AO_ALBEDO)
+        {
+            dAOdAlb=calloc(nAOtotal*nfacn,sizeof(double));
         }
     }
     int nCRtotal=0;
@@ -250,7 +255,17 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         areareglength=nfacn;
         
     }
-    Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+areareglength+nvectorreg+nAlbreg+softmaxz+nCRtotal; //LC points+AO points+OC points+RD points+convex reg+dihedral reg+area reg+[vector reg for free chords]+albedo reg+restricted z reg+contour_points
+     int nCOM=0;
+   double CoM=0.0;
+   double *CoMdv;
+   int info=0;
+   if(INI_COM_WEIGHT>0)
+   {
+        nCOM=1;
+        CoMdv=calloc(3*nvert+3,sizeof(double));
+        
+   }
+    Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+areareglength+nvectorreg+nAlbreg+softmaxz+nCRtotal+nCOM; //LC points+AO points+OC points+RD points+convex reg+dihedral reg+area reg+[vector reg for free chords]+albedo reg+restricted z reg+contour_points
    
     int nJcols=3*nvert+3+ncalib+nAlbedo+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp+nCRoffsets; //shape params+offset params and scale
     int OCoffsetcolpos=3*nvert+3+nAOoffsets+nAOscale;
@@ -271,6 +286,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     int Albregpos=Vectorregpos+nvectorreg;
     int CRoffsetcolpos=3*nvert+3+ncalib+nAlbedo+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp;
     int CRrowpos=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+areareglength+nvectorreg+nAlbreg+softmaxz;
+    int CoMregpos=CRrowpos+nCRtotal;
     S=calloc(Slength+nJcols,sizeof(double)); 
     Sp=calloc(Slength,sizeof(double));
     J=calloc(Slength*(nJcols),sizeof(double));
@@ -290,6 +306,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     
   double *d_old=calloc(nJcols,sizeof(double));
   double *d=calloc(nJcols,sizeof(double));
+  int first_time=1;
     if(INI_MASK_SET==1)
     {
         Mask=calloc(nJcols,sizeof(int));
@@ -394,14 +411,17 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
       read_state_file(INI_RESTORE_STATE,"#OCCoffset",OCoffset,nOCoffsets);
       read_state_file(INI_RESTORE_STATE,"#Chordoffset",Chordoffset,nChordoffsets);
       //Restore albedo
+      if(INI_FIT_ALBEDO)
       read_state_file(INI_RESTORE_STATE,"#Albedolog",eAlbedo,nfacn);
     
   }
     for(int k=0;k<NUM_OF_ROUNDS;k++)
     {
+        start:
         if(decreased==1)
         {
-            
+            if(INI_DW_DEC!=1.0)
+            angW=INI_DW*pow(INI_DW_DEC,count);
             Sqrt3_Subdiv(tlist,vlist,nfac,nvert,&tlistn,&vlistn,&nfacn,&nvertn,&D,INI_SD_LEVEL); //Do  subdivision. Remember to free allocated mem
             //Calculate LCs
             
@@ -439,7 +459,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
 //                 zero_array(AO->datai[1],AO->nobs[1]);
                 ///////////DEBUG////////////////////////////////////////
               
-                Calculate_AOs(tlistn,vlistn,nfacn,nvertn,angles,AO,AOoffset,D,nvertn,nvert,INI_AO_WEIGHT,AOscale,AOout,AOdv,AOds,1);
+                Calculate_AOs(tlistn,vlistn,nfacn,nvertn,angles,AO,AOoffset,D,nvertn,nvert,INI_AO_WEIGHT,AOscale,AOout,AOdv,AOds,eAlbedo,Alblimits,dAOdAlb,1);
                 /////////////DEBUG//////////////////
 //                   write_matrix_file("/tmp/AOout.txt",AOout,1,nAOtotal);
 //                        write_matrix_file("/tmp/AOdv.txt",AOdv,nAOtotal,nAOcols);
@@ -455,6 +475,12 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                     mult_with_cons(AOds,nAOtotal,nAO,AOW);
                     set_submatrix(J,Slength,nJcols,AOds,nAOtotal,nAO,nLCtotal,nAOcols);
                 }
+                 if(INI_FIT_AO_ALBEDO)
+        {
+            mult_with_cons(dAOdAlb,nAOtotal,nfacn,AOW);
+           set_submatrix(J,Slength,nJcols,dAOdAlb,nAOtotal,nfacn,nLCtotal,Albcolpos);
+        }
+           
             }
             if(INI_HAVE_CNTR)
             {
@@ -562,6 +588,14 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                S[Zmaxregpos]=zm;
                set_submatrix(J,Slength,nJcols,dzmdz,1,nvert,Zmaxregpos,2*nvert);
            }
+           if(INI_COM_WEIGHT>0)
+        {
+            CoM=center_of_mass(tlistn,vlistn,nfacn,nvertn,D,nvertn,nvert,CoMdv,1);
+            CoM=INI_COM_WEIGHT*CoM;
+            mult_with_cons(CoMdv,1,3*nvert+3,-INI_COM_WEIGHT);
+            S[CoMregpos]=CoM;
+            set_submatrix(J,Slength,nJcols,CoMdv,1,3*nvert+3,CoMregpos,0);
+        }
             mult_with_cons(LCout,1,nLCtotal,lcW);
             mult_with_cons(dLCdv,nLCtotal,3*nvert+3,lcW);
             CRres*=cW;
@@ -589,6 +623,8 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             printf("chisq: %4.2f LCfit: %4.2f AOfit: %4.2f OCfit: %4.2f RDfit: %4.2f Convex reg: %4.2f Dihedral Angle reg: %4.2f",chisq,LCfit,AOfit,OCfit,RDfit,pow(CRres,2),pow(ANGres,2)); 
             if(INI_AW>0)
                 printf(" Area reg: %4.2f",Aresfit);
+             if(INI_COM_WEIGHT>0)
+              printf(" CoM reg: %4.2f",pow(CoM,2));
             if(INI_HAVE_CNTR>0)
                 printf(" CNTRfit: %4.2f",CRfit);
             if(INI_ZMAX_WEIGHT>0)
@@ -651,7 +687,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             zero_array(MX,nMask+Slength);
             memcpy(MX,Sp,sizeof(double)*Slength);
             matrix_concat_special2(JM,Slength,nMask,d,lambda,&lhs);
-            solve_matrix_eq_QR(lhs,Slength+nMask,nMask,MX);
+            info=solve_matrix_eq_QR(lhs,Slength+nMask,nMask,MX);
             free(lhs);
             matrix_prod(Mask_Matrix,nJcols,nMask,MX,1,X);
          
@@ -669,10 +705,61 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
        // matrix_concat_special(J,Slength,nJcols,JTJ,lambda,&lhs); //S has been allocated to Slength+nJcols
        zero_array(S,nJcols+Slength);
         memcpy(S,Sp,sizeof(double)*Slength);
-        solve_matrix_eq_QR(lhs,Slength+nJcols,nJcols,S); //Solve the LM 
+        info=solve_matrix_eq_QR(lhs,Slength+nJcols,nJcols,S); //Solve the LM 
         free(lhs);
         memcpy(X,S,nJcols*sizeof(double));
         }
+        if(info>0 && INI_FIT_ALBEDO && first_time==1)
+        {
+            printf("Solving the matrix failed, fixing the albedo\n");
+            first_time=0;
+            INI_MASK_SET=1;
+            int INI_FIX_ALBEDO=1;
+          if(INI_MASK_SET==1)
+    {
+        Mask=calloc(nJcols,sizeof(int));
+        
+        if(INI_FIX_SHAPE==1)
+            for(int k=0;k<3*nvert;k++)
+                Mask[k]=1;
+        if(INI_FIX_ANGLES==1)
+            for(int k=3*nvert;k<3*nvert+3;k++)
+                Mask[k]=1;
+        if(INI_FREE_CHORD_NMR>0)
+        {
+            for(int k=0;k<nChordoffsets;k++)
+                Mask[Chordoffsetcolpos+k]=1;
+            for(int k=0;k<INI_FREE_CHORD_NMR;k++)
+                Mask[Chordoffsetcolpos+INI_FREE_CHORD_LIST[k]-1]=0;
+        }
+        if(INI_FIX_ALBEDO==1)
+         for(int k=0;k<nfacn;k++)
+             Mask[Albcolpos+k]=1;
+        if(INI_PHASE_MASK!=NULL)
+        {
+            Mask[phasecolpos]=INI_PHASE_MASK[0];
+            Mask[phasecolpos+1]=INI_PHASE_MASK[1];
+            Mask[phasecolpos+2]=INI_PHASE_MASK[2];
+            
+            
+        }
+        
+        mask_matrix(nJcols,Mask,&Mask_Matrix,&nMask);
+        MJTJ=calloc(nMask*nMask,sizeof(double));
+        MJTJpd=calloc(nMask*nMask,sizeof(double));
+       
+        MX=calloc(nMask+Slength,sizeof(double));
+        
+        JM=calloc(Slength*nMask,sizeof(double));
+        
+    }
+                
+    decreased=1;
+    goto start;
+        
+        }
+        //END HACK
+        
        
        
         add_vector_to_vlist(vlist,X,vlist2,nvert);
@@ -729,7 +816,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         }
         if(INI_HAVE_AO)
         {
-            Calculate_AOs(tlistn,vlistn,nfacn,nvertn,angles2,AO,AOoffset2,D,nvertn,nvert,INI_AO_WEIGHT,AOscale2,AOout,AOdv,NULL,0);
+            Calculate_AOs(tlistn,vlistn,nfacn,nvertn,angles2,AO,AOoffset2,D,nvertn,nvert,INI_AO_WEIGHT,AOscale2,AOout,AOdv,NULL,eAlbedo2,Alblimits,dAOdAlb,0);
             mult_with_cons(AOout,1,nAOtotal,AOW);
             set_submatrix(S,1,Slength,AOout,1,nAOtotal,0,nLCtotal);
         }
@@ -770,7 +857,13 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         CRres*=cW;
         
         ANGres*=angW;
-        
+        if(INI_COM_WEIGHT>0)
+        {
+            CoM=center_of_mass(tlistn,vlistn,nfacn,nvertn,D,nvert,nvert,CoMdv,0);
+          
+            CoM=INI_COM_WEIGHT*CoM;
+           S[CoMregpos]=CoM;
+        }
         
         
         set_submatrix(S,1,Slength,LCout,1,nLCtotal,0,0);
@@ -810,6 +903,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             if(INI_HAVE_AO)
             {
                 memcpy(AOoffset,AOoffset2,sizeof(double)*(nAOoffsets));
+                 memcpy(ao_total_bright,INI_AO_TOTAL_BRIGHT,sizeof(double)*nAO);
                 if(INI_AO_SCALING)
                     memcpy(AOscale,AOscale2,sizeof(double)*nAO);
             }
@@ -938,7 +1032,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 }
                 //write angles
                 fprintf(fp,"#Angles:\n");
-                fprintf(fp,"%.2f %.2f %.8f %.2f\n",90-angles[0]*180/PI,angles[1]*180/PI,24*2*PI/angles[2],angles[3]*180/PI);
+                fprintf(fp,"%.4f %.4f %.8f %.4f\n",90-angles[0]*180/PI,angles[1]*180/PI,24*2*PI/angles[2],angles[3]*180/PI);
                 if(INI_PHASE_PARAMS!=NULL)
                 {
                     fprintf(fp,"#Phaseparams:\n");
@@ -948,12 +1042,16 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 {
                     fprintf(fp,"#Albedo: %d\n",nfacn);
                     for(int j=0;j<nfacn;j++)
-                        fprintf(fp,"%.2f ",Alblimits[0]+(Alblimits[1]-Alblimits[0])*exp(eAlbedo[j])/(exp(eAlbedo[j])+1.0));
+                        fprintf(fp,"%.4f ",Alblimits[0]+(Alblimits[1]-Alblimits[0])*exp(eAlbedo[j])/(exp(eAlbedo[j])+1.0));
                   fprintf(fp,"\n");
                   fprintf(fp,"#Albedolog: %d\n",nfacn);
                     for(int j=0;j<nfacn;j++)
-                        fprintf(fp,"%.2f ",eAlbedo[j]);
+                        fprintf(fp,"%.4f ",eAlbedo[j]);
                   fprintf(fp,"\n");
+                  fprintf(fp,"#AOtotalbright:\n");
+                for(int j=0;j<nAO;j++)
+                    fprintf(fp,"%.4f ",ao_total_bright[j]);
+                fprintf(fp,"\n");
                 }  
                 //Shape parameters
                 fprintf(fp,"#Shape:\n");
@@ -964,42 +1062,46 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 fprintf(fp,"\n");
                 fprintf(fp,"#Vertices: %d\n",nvert);
                 for(int j=0;j<3*nvert;j++)
-                    fprintf(fp,"%.4f ",vlist[j]);
+                    fprintf(fp,"%.5f ",vlist[j]);
                 fprintf(fp,"\n");
                 fprintf(fp,"#Polyhedron: %d %d\n",nfacn,nvertn);
                 for(int j=0;j<3*nfacn;j++)
                     fprintf(fp,"%d ",tlistn[j]);
                 fprintf(fp,"\n");
                 for(int j=0;j<3*nvertn;j++)
-                    fprintf(fp,"%.4f ",vlistn[j]);
+                    fprintf(fp,"%.5f ",vlistn[j]);
                  fprintf(fp,"\n");
                 if(INI_HAVE_AO)
                 {
                 fprintf(fp,"#AOoffset: %d\n",nAOoffsets);
                 for(int j=0;j<nAOoffsets;j++)
-                    fprintf(fp,"%.4f ",AOoffset[j]);
+                    fprintf(fp,"%.5f ",AOoffset[j]);
                 fprintf(fp,"\n");
                 fprintf(fp,"#AOscale: %d\n",nAOscale);
                 for(int j=0;j<nAOscale;j++)
-                    fprintf(fp,"%.4f ",AOscale[j]);
+                    fprintf(fp,"%.5f ",AOscale[j]);
+              fprintf(fp,"\n");
+                fprintf(fp,"#AOtotalbright:\n");
+                for(int j=0;j<nAO;j++)
+                    fprintf(fp,"%.4f ",ao_total_bright[j]);
                 fprintf(fp,"\n");
                 }
                 if(INI_HAVE_OC)
                 {
                     fprintf(fp,"#OCCoffset: %d\n",nOCoffsets);
                     for(int j=0;j<nOCoffsets;j++)
-                        fprintf(fp,"%.4f ",OCoffset[j]);
+                        fprintf(fp,"%.5f ",OCoffset[j]);
                     fprintf(fp,"\n");
                     fprintf(fp,"#Chordoffset: %d\n",nChordoffsets);
                     for(int j=0;j<nChordoffsets;j++)
-                        fprintf(fp,"%.4f ",Chordoffset[j]);
+                        fprintf(fp,"%.5f ",Chordoffset[j]);
                     fprintf(fp,"\n");
                 }
                 if(INI_HAVE_CNTR)
             {
                 fprintf(fp,"#CRoffsets: %d\n",nCRoffsets);
                 for(int j=0;j<nCRoffsets;j++)
-                    fprintf(fp,"%.4f",CRoffset[j]);
+                    fprintf(fp,"%.5f",CRoffset[j]);
                 fprintf(fp,"\n");
             }
                 if(INI_HAVE_RD)
@@ -1010,7 +1112,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                     fprintf(fp,"\n");
                     fprintf(fp,"#RDscale: %d\n",nRDscale);
                     for(int j=0;j<nRDscale;j++)
-                        fprintf(fp,"%.4f ",RDscale[j]);
+                        fprintf(fp,"%.5f ",RDscale[j]);
                 }
                 
                fclose(fp); 
@@ -1027,7 +1129,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         }
         free(vlistn);
         free(tlistn);
-        if(INI_SD_LEVEL!=0)
+        if(INI_SD_LEVEL>-1)
             free(D);
         //     zero_array(dLCdv,nLCtotal*(3*nvert+3));
         //     zero_array(AOdv,nAOcols*nAOtotal);

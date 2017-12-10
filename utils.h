@@ -21,6 +21,7 @@
 #include<lapacke.h>
 #endif
 #include"wcstools-3.9.2/libwcs/fitsfile.h"
+void read_obj_file(char *file, int **tlist,double **vlist,int *nfac,int *nvert);
 int read_state_fileI(char *filename,char *text,int *buffer,int n);
 int read_state_file(char *filename,char *text,double *buffer,int n);
 void write_obj_file(char *file,int *tlist,double *vlist,int nfac,int nvert);
@@ -52,9 +53,9 @@ void Calculate_Radiance(int *tlist, double *vlist,int nfac,int nvert,double* ang
 OCstruct  *read_occ(char* filename,double min_tim,double *up);
 void find_chord(int *tlist,double *vlist2,int nfac,int nvert,double *offset,double *a,double *b,int *Adj,int *cledge,int *faedge,double *clpoint,double *fapoint,int *inters,double *dclpx,double *dclpy,double *dfapx,double *dfapy);
 void triangulate_sphere(int nrows,double *t,double *f,int *ifp);
-void Calculate_AO_deriv(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *Eo,double *E0o,double *up,double TIME,double dist,double *freqx,double *freqy,int nfreq,double *offset,double *Fr,double *Fi,double *dFdxr,double *dFdxi,double *dFdyr,double *dFdyi,double *dFdzr,double *dFdzi,double *dFdAr,double *dFdAi,double *dFdoffr,double *dFdoffi);
-void Calculate_AO(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *Eo,double *E0o,double *up,double TIME,double dist,double *freqx,double *freqy,int nfreq,double *offset,double *Fr,double *Fi);
-void Calculate_AOs(int *tlist,double *vlist,int nfac,int nvert,double *angles,AOstruct *AOs,double *offset,double *D,int dm,int dn,double *Weight,double *scale,double *FT,double *FTdv,double* FTdS,int deriv);
+void Calculate_AO_deriv(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *Eo,double *E0o,double *up,double TIME,double dist,double *freqx,double *freqy,int nfreq,double *offset,double *Fr,double *Fi,double *dFdxr,double *dFdxi,double *dFdyr,double *dFdyi,double *dFdzr,double *dFdzi,double *dFdAr,double *dFdAi,double *dFdoffr,double *dFdoffi,double *A,double *Alimit,double *dAr,double *dAi);
+double Calculate_AO(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *Eo,double *E0o,double *up,double TIME,double dist,double *freqx,double *freqy,int nfreq,double *offset,double *Fr,double *Fi,double *A,double *Alimit);
+void Calculate_AOs(int *tlist,double *vlist,int nfac,int nvert,double *angles,AOstruct *AOs,double *offset,double *D,int dm,int dn,double *Weight,double *scale,double *FT,double *FTdv,double* FTdS,double *Albedo,double *Alimit,double *dA,int deriv);
 AOstruct * process_ao_images(char **filenames,char **psfnames,int nao,int *x0,int *y0,int *nx,int *ny,int *xp0,int *yp0,int *npx,int *npy, double *dx,double *dy,double *dates,double min_tim,double *E,double *E0,double *up,double *TIME,int nephm,int* LowFreq);
 void mul_cols(double *A,int m,int n,double *V);
 void mul_rows(double *A,int m,int n,double *V);
@@ -129,4 +130,6 @@ void Calculate_Contours(int *tlist,double *vlist,int nfac,int nvert,double *angl
 double minv(double *vlist,int nvert,int index);
 double maxv(double *vlist,int nvert,int index);
 int find_closest(double *p,double *plistx,double *plisty,int n);
+int read_values_from_file(char *filename,double **fbuffer);
+double center_of_mass(int *tlist,double *vlist,int nfac,int nvert,double *D,int dm,int dn,double *dv,int deriv);
 #endif

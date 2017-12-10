@@ -33,7 +33,7 @@ void localsmooth(int *tlist,double *vlist,int nfac,int nvert,double *ealb,double
     double *alb=calloc(nfac,sizeof(double));
     double albderiv=0;
     for(int i=0;i<nfac;i++)
-        alb[i]=Alim[0]+(Alim[1]-Alim[0])*exp(ealb[i])/(exp(ealb[i])+1.0);
+        alb[i]=(Alim[0]+Alim[1])/2+(Alim[1]-Alim[0])/2*tanh(ealb[i]);
         
     int *Adj=calloc(nvert*nvert,sizeof(int));
     int i1,i2,i3,n1,n2,n3;
@@ -44,7 +44,7 @@ void localsmooth(int *tlist,double *vlist,int nfac,int nvert,double *ealb,double
         i1=tlist[3*j]-1;
         i2=tlist[3*j+1]-1;
         i3=tlist[3*j+2]-1;
-        albderiv=(Alim[1]-Alim[0])*exp(ealb[j])/pow(exp(ealb[j])+1,2);
+        albderiv=(Alim[1]-Alim[0])/2*(1-pow(tanh(ealb[j]),2));
         n1=get_elI(Adj,nvert,nvert,i2,i1)-1;
         n2=get_elI(Adj,nvert,nvert,i3,i2)-1;
         n3=get_elI(Adj,nvert,nvert,i1,i3)-1;
@@ -174,7 +174,7 @@ void write_shape_file(char *str,int *tlist,double *vlist,int nfac,int nvert)
     }
     fprintf(fp,"%d %d\n",nvert,nfac);
     for(int j=0;j<nvert;j++)
-        fprintf(fp,"%.4f %.4f %.4f\n",vlist[3*j],vlist[3*j+1],vlist[3*j+2]);
+        fprintf(fp,"%.5f %.5f %.5f\n",vlist[3*j],vlist[3*j+1],vlist[3*j+2]);
     for(int j=0;j<nfac;j++)
         fprintf(fp,"%d %d %d\n",tlist[3*j],tlist[3*j+1],tlist[3*j+2]);
     fclose(fp);
@@ -1525,4 +1525,111 @@ int find_closest(double *p,double *plistx,double *plisty,int n)
         }
     }
     return index;
+}
+void read_obj_file(char *file, int **tlist,double **vlist,int *nfac,int *nvert)
+{
+    FILE *fid;
+    char *buffer;
+    int *ttlist=calloc(20000,sizeof(int));
+    double *tvlist=calloc(20000,sizeof(double));
+    int vcount=0;
+    int tcount=0;
+    char t;
+    buffer=calloc(2048,sizeof(char));
+   fid=fopen(file,"r");
+     if(fid==NULL)
+    {
+        fprintf(stderr,"Cannot open file %s for reading the shape in obj format\n",file);
+        exit(-1);
+    }
+    fgets(buffer,2048,fid);
+    while(buffer[0]=='v')
+    {
+        if(sscanf(buffer,"%c %lf %lf %lf",&t,tvlist+3*vcount,tvlist+3*vcount+1,tvlist+3*vcount+2)!=4)
+        {
+            fprintf(stderr,"Error processing file %s (line %s)\n",file,buffer);
+            exit(-1);
+        }
+        vcount++;
+        if(3*vcount>20000-1)
+        {
+           fprintf(stderr,"Vertex count too large in file %s\n",file);
+            exit(-1); 
+        }
+        fgets(buffer,2048,fid);
+    }
+     while(buffer[0]=='f')
+    {
+        if(sscanf(buffer,"%c %d %d %d",&t,ttlist+3*tcount,ttlist+3*tcount+1,ttlist+3*tcount+2)!=4)
+        {
+            fprintf(stderr,"Error processing file %s (line %s)\n",file,buffer);
+            exit(-1);
+        }
+        tcount++;
+         if(3*tcount>20000-1)
+        {
+           fprintf(stderr,"facet count too large in file %s\n",file);
+            exit(-1); 
+        }
+        if(fgets(buffer,2048,fid)==NULL)
+            break;
+    }
+    int *tlist2=calloc(3*tcount,sizeof(int));
+    double *vlist2=calloc(3*vcount,sizeof(double));
+    memcpy(tlist2,ttlist,3*tcount*sizeof(int));
+    memcpy(vlist2,tvlist,3*vcount*sizeof(double));
+    *nfac=tcount;
+    *nvert=vcount;
+    *vlist=vlist2;
+    *tlist=tlist2;
+    free(ttlist);
+    free(tvlist);
+    free(buffer);
+    fclose(fid);
+}
+int read_values_from_file(char *filename,double **fbuffer)
+{ 
+/*
+     * Read a vector of double values from a file. Lines starting with # or ;
+     *are ignored. Any delimeter( \t\r\n\f\v,) can be used to separate values.
+     */ 
+/*Difference to read_vector_file: fbuffer is allocated in this routine
+ */
+
+ FILE *fid;
+    fid=fopen(filename,"r");
+     char delims[]=" \t\r\n\f\v,";
+     char *token;
+     char *buff,*filebuff;
+     buff=malloc(10000*sizeof(double));
+     filebuff=malloc(10000*sizeof(double));
+     double *buffer=malloc(10000*sizeof(double));
+     if(fid==NULL)
+    {
+        perror("Error opening file in read_values_from_file");
+        exit(-1);
+    }
+    int count=0;
+    while(fgets(buff,10000,fid)!=NULL)
+    {
+        if(buff[0]=='#' || buff[0]==';')
+            continue;
+        memcpy(filebuff,buff,10000);
+        
+    token=strtok(filebuff,delims);
+    
+    while(token!=NULL && count<10000)
+    {
+        buffer[count]=atof(token);
+        token=strtok(NULL,delims);
+        count++;
+    }
+    }
+    *fbuffer=calloc(count,sizeof(double));
+    memcpy(*fbuffer,buffer,count*sizeof(double));
+    
+    free(buff);
+    free(buffer);
+    free(filebuff);
+    return count;
 }

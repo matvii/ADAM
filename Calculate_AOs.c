@@ -3,9 +3,9 @@
 #include"utils.h"
 #include"structs.h"
 #include"matrix_ops.h"
+#include"globals.h"
 
-
-void Calculate_AOs(int *tlist,double *vlist,int nfac,int nvert,double *angles,AOstruct *AOs,double *offset,double *D,int dm,int dn,double *Weight,double *scale,double *FT,double *FTdv,double* FTdS,int deriv)
+void Calculate_AOs(int *tlist,double *vlist,int nfac,int nvert,double *angles,AOstruct *AOs,double *offset,double *D,int dm,int dn,double *Weight,double *scale,double *FT,double *FTdv,double* FTdS,double *Albedo,double *Alimit,double *dA,int deriv)
 {
  /*tlist,vlist,angles -the asteroid shape
   * AO struct contains the AO data
@@ -13,6 +13,8 @@ void Calculate_AOs(int *tlist,double *vlist,int nfac,int nvert,double *angles,AO
   * D is the derivative matrix (dm x dn), derivatives of vertex coordinates wrt parameters 
   * Weight is additional weighting terms for individual AO images, 1xnao vector (not implemented yet)
   * Scale additional scaling terms for each ao image.
+  * Albedo nfac vector, optional
+  * Alimit, albedo limit 2-vector
   * deriv==1, then the derivatives will be calculated
   * OUTPUT:
   * FTr,FTi real and imaginary results
@@ -23,10 +25,12 @@ void Calculate_AOs(int *tlist,double *vlist,int nfac,int nvert,double *angles,AO
   * FTdv is 2*ntpoints x (3*dn+3+2*nao) matrix =[real(FTdx)*D real(FTdy)*D real(FTdz)*D real(FTdA) real(FTdoff);
   * imag(FTdx)*D imag(FTdy)*D imag(FTdz)*D imag(FTdA) imag(FTdoff);...]
   * FTdS is an optional matrix for Scaling terms
+  * dAr, dAi 2*ntpointsxnfac matrices, only if albedo is to be fitted
   * NOTE THAT FTdv is assumed to be initialized to zero
   
   */
  /*TBD: Combine real and complex matrices here*/
+ int tid;
  int DisNULL=0;
  int D1V=0;
  int D3V=0;
@@ -48,7 +52,7 @@ void Calculate_AOs(int *tlist,double *vlist,int nfac,int nvert,double *angles,AO
  
  if(Weight!=NULL)
      UseWeight=1;
- 
+
   
   int M,N;
   int *nopoints,*cumpoints,ntpoints;
@@ -66,6 +70,7 @@ omp_set_num_threads(NUM_THREADS);
 #pragma omp parallel for
 for(int obsind=0;obsind<nao;obsind++)
   {
+     //  printf("Thread %d, number of threads %d\n",omp_get_thread_num(),omp_get_num_threads());
       double Scale=1;
      if(UseScale==1)
          Scale=exp(scale[obsind]);
@@ -94,7 +99,7 @@ for(int obsind=0;obsind<nao;obsind++)
    psfi=AOs->psfi[obsind];
    
   // double time=omp_get_wtime();
-    Calculate_AO(tlist,vlist,nfac,nvert,angles,FTE,FTE0,FTup,*FTTIME,*FTdist,FTfreqx,FTfreqy,nopoints[obsind],offset+2*obsind,FTr,FTi);
+    INI_AO_TOTAL_BRIGHT[obsind]=Calculate_AO(tlist,vlist,nfac,nvert,angles,FTE,FTE0,FTup,*FTTIME,*FTdist,FTfreqx,FTfreqy,nopoints[obsind],offset+2*obsind,FTr,FTi,Albedo,Alimit);
    // printf("Time taken: %f\n",omp_get_wtime()-time);
   if(psfr==NULL || psfi==NULL)
   {
@@ -143,7 +148,7 @@ omp_set_num_threads(NUM_THREADS);
 #pragma omp parallel for
 for(int obsind=0;obsind<nao;obsind++)
   {
-      
+     
       double Scale=1;
      if(UseScale==1)
          Scale=exp(scale[obsind]);
@@ -155,11 +160,13 @@ for(int obsind=0;obsind<nao;obsind++)
        W=Weight[obsind];
    else
        W=1;
+   
     double *FTdxfr,*FTdxfi,*FTdyfr,*FTdyfi,*FTdzfr,*FTdzfi;
      double *FTE,*FTE0,*FTTIME,*FTfreqx,*FTfreqy,*FTdist,*FTup,*datar,*datai;
      double *FTdAr,*FTdAi,*FTdoffr,*FTdoffi,*FTdxr,*FTdxi,*FTdyr,*FTdyi,*FTdzr,*FTdzi;
     double  *FTr,*FTi;
     double *psfr,*psfi;
+   double *dFTdAlbr,*dFTdAlbi;
     psfr=AOs->psfr[obsind];
     psfi=AOs->psfi[obsind];
    //  obsind=omp_get_thread_num();
@@ -177,7 +184,11 @@ for(int obsind=0;obsind<nao;obsind++)
     FTdyi=calloc(nopoints[obsind]*nvertf,sizeof(double));
     FTdzr=calloc(nopoints[obsind]*nvertf,sizeof(double));
     FTdzi=calloc(nopoints[obsind]*nvertf,sizeof(double));
-   
+   if(INI_FIT_AO_ALBEDO==1)
+   {
+       dFTdAlbr=calloc(nopoints[obsind]*nfac,sizeof(double));
+       dFTdAlbi=calloc(nopoints[obsind]*nfac,sizeof(double));
+   }
  datar=AOs->datar[obsind];
    datai=AOs->datai[obsind];
    
@@ -197,7 +208,7 @@ for(int obsind=0;obsind<nao;obsind++)
       FTdyfi=calloc(nopoints[obsind]*nvert,sizeof(double));
       FTdzfi=calloc(nopoints[obsind]*nvert,sizeof(double));
       //double time=omp_get_wtime();
-      Calculate_AO_deriv(tlist,vlist,nfac,nvert,angles,FTE,FTE0,FTup, *FTTIME,*FTdist,FTfreqx,FTfreqy,nopoints[obsind],offset+2*obsind,FTr,FTi,FTdxfr,FTdxfi,FTdyfr,FTdyfi,FTdzfr,FTdzfi,FTdAr,FTdAi,FTdoffr,FTdoffi);
+      Calculate_AO_deriv(tlist,vlist,nfac,nvert,angles,FTE,FTE0,FTup, *FTTIME,*FTdist,FTfreqx,FTfreqy,nopoints[obsind],offset+2*obsind,FTr,FTi,FTdxfr,FTdxfi,FTdyfr,FTdyfi,FTdzfr,FTdzfi,FTdAr,FTdAi,FTdoffr,FTdoffi,Albedo,Alimit,dFTdAlbr,dFTdAlbi);
      // printf("Time taken: %f\n",omp_get_wtime()-time);
      
      
@@ -216,7 +227,7 @@ for(int obsind=0;obsind<nao;obsind++)
       free(FTdzfi);
     }
     else
-      Calculate_AO_deriv(tlist,vlist,nfac,nvert,angles,FTE,FTE0,FTup, *FTTIME,*FTdist,FTfreqx,FTfreqy,nopoints[obsind],offset+2*obsind,FTr,FTi,FTdxr,FTdxi,FTdyr,FTdyi,FTdzr,FTdzi,FTdAr,FTdAi,FTdoffr,FTdoffi);
+      Calculate_AO_deriv(tlist,vlist,nfac,nvert,angles,FTE,FTE0,FTup, *FTTIME,*FTdist,FTfreqx,FTfreqy,nopoints[obsind],offset+2*obsind,FTr,FTi,FTdxr,FTdxi,FTdyr,FTdyi,FTdzr,FTdzi,FTdAr,FTdAi,FTdoffr,FTdoffi,Albedo,Alimit,dFTdAlbr,dFTdAlbi);
  
   
 
@@ -234,6 +245,9 @@ for(int obsind=0;obsind<nao;obsind++)
     
     
   }
+ 
+  
+
   }
   else
   {
@@ -278,7 +292,17 @@ for(int obsind=0;obsind<nao;obsind++)
           FTdoffr[k1*2+1]=FTdoffr[k1*2+1]*psfr[k1]-psfi[k1]*FTdoffi[k1*2+1];
           FTdoffi[k1*2+1]=FTdoffi[k1*2+1]*psfr[k1]+psfi[k1]*temp;
       }
-  }
+       //If albedo is used, calculate albedo derivatives
+       if(Albedo!=NULL)
+           for (int k1=0;k1<oind;k1++)
+               for(int k2=0;k2<nfac;k2++)
+               {
+                   temp=dFTdAlbr[k1*nfac+k2];
+                   dFTdAlbr[k1*nfac+k2]=dFTdAlbr[k1*nfac+k2]*psfr[k1]-dFTdAlbi[k1*nfac+k2]*psfi[k1];
+                   dFTdAlbi[k1*nfac+k2]=dFTdAlbi[k1*nfac+k2]*psfr[k1]+temp*psfi[k1];
+               }
+               
+        }
   
   
   
@@ -300,6 +324,12 @@ if(UseWeight==1)
     mult_with_cons(FTdoffi,oind,2,W);
     mult_with_cons(FTr,oind,1,W);
     mult_with_cons(FTi,oind,1,W);
+
+    if(INI_FIT_AO_ALBEDO)
+    {
+        mult_with_cons(dFTdAlbr,oind,nfac,W);
+        mult_with_cons(dFTdAlbi,oind,nfac,W);
+    }
 }
 if(UseScale==1)
 {
@@ -315,6 +345,11 @@ if(UseScale==1)
     
     mult_with_cons(FTdoffr,oind,2,Scale);
     mult_with_cons(FTdoffi,oind,2,Scale);
+if(INI_FIT_AO_ALBEDO)
+    {
+        mult_with_cons(dFTdAlbr,oind,nfac,Scale);
+        mult_with_cons(dFTdAlbi,oind,nfac,Scale);
+    }
     //derivatives wrt Scale
     
     set_submatrix(FTdS,2*ntpoints,nao,FTr,oind,1,cind,obsind);
@@ -338,6 +373,12 @@ set_submatrix(FTdv,2*ntpoints,3*dn+3+2*nao,FTdAi,oind,3,cind+ntpoints,3*nvertf);
 set_submatrix(FTdv,2*ntpoints,3*dn+3+2*nao,FTdoffr,oind,2,cind,3*nvertf+3+2*obsind);
 set_submatrix(FTdv,2*ntpoints,3*dn+3+2*nao,FTdoffi,oind,2,cind+ntpoints,3*nvertf+3+2*obsind);
 
+//If albedo is set 
+if(INI_FIT_AO_ALBEDO)
+{
+    set_submatrix(dA,2*ntpoints,nfac,dFTdAlbr,oind,nfac,cind,0);
+    set_submatrix(dA,2*ntpoints,nfac,dFTdAlbi,oind,nfac,cind+ntpoints,0);
+}
 free(FTdxr);
 free(FTdxi);
 free(FTdyr);
@@ -348,7 +389,11 @@ free(FTdAr);
 free(FTdAi);
 free(FTdoffr);
 free(FTdoffi);
-
+if(INI_FIT_AO_ALBEDO)
+{
+free(dFTdAlbr);
+free(dFTdAlbi);
+}
 }
 free(cumpoints);
 }

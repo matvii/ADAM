@@ -38,6 +38,9 @@ void FacetsOverHorizon(int *tlist,double *vlist,int nfac,int nvert,double *norma
     NumofBlocks[j]=0;
   */
   //For each facet
+  memset(NumofBlocks,0,sizeof(int)*nfac);
+  memset(IndexofBlocks,0,sizeof(int)*nfac*nfac);
+  
   for(int j=0;j<nfac;j++)
   {
     //Vertex indices of the current facet

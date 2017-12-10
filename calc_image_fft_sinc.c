@@ -38,17 +38,16 @@ void calc_image_fft(double *M,int m,int n,double dx,double dy,double *zMr,double
      * caused by fft*/
     for(int i=0;i<m;i++)
     {
-        for(int j=0;j<n/2;j++)
+        for(int j=0;j<n/2+1;j++)
         {
         
-            if(i==0&&j==0)
-                continue;
-            Fx[i*n/2+j-1]=j*1/Lx;
-            Fy[i*n/2+j-1]=i*1/Ly;
+            
+            Fx[i*(n/2+1)+j]=j*1/Lx;
+            Fy[i*(n/2+1)+j]=i*1/Ly;
             if(i>m/2-1)
-                Fy[i*n/2+j-1]=(i-m)*1/Ly;
-            zMr[i*n/2+j-1]=pow(-1.0,i+j)*fft2_out[i*(n/2+1)+j].r*sinc(dx*Fx[i*n/2+j-1])*sinc(dy*Fy[i*n/2+j-1])/dc;
-            zMi[i*n/2+j-1]=pow(-1.0,i+j)*fft2_out[i*(n/2+1)+j].i*sinc(dx*Fx[i*n/2+j-1])*sinc(dy*Fy[i*n/2+j-1])/dc;
+                Fy[i*(n/2+1)+j]=(i-m)*1/Ly;
+            zMr[i*(n/2+1)+j]=pow(-1.0,i+j)*fft2_out[i*(n/2+1)+j].r*sinc(dx*Fx[i*(n/2+1)+j])*sinc(dy*Fy[i*(n/2+1)+j])/dc;
+            zMi[i*(n/2+1)+j]=pow(-1.0,i+j)*fft2_out[i*(n/2+1)+j].i*sinc(dx*Fx[i*(n/2+1)+j])*sinc(dy*Fy[i*(n/2+1)+j])/dc;
             
         }
     }

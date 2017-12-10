@@ -4,7 +4,7 @@
 #include"matrix_ops.h"
 #include"structs.h"
 #include"globals.h"
-void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD)
+void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD,CNTRstruct *CR)
 {
     //First initialize the initial shape
     int *tlist,*tlistn,nfac,nvert,nfacn,nvertn;
@@ -30,20 +30,19 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
    
     //This is for calibrated lightcurves
     double *params=NULL,*params2=NULL;
+    int ncalib=0;
     if(INI_PHASE_PARAMS!=NULL)
     {
-        params=calloc(4,sizeof(double));
-        params2=calloc(4,sizeof(double));
+        params=calloc(3,sizeof(double));
+        params2=calloc(3,sizeof(double));
         params[0]=INI_PHASE_PARAMS[0];
         params[1]=INI_PHASE_PARAMS[1];
         params[2]=INI_PHASE_PARAMS[2];
-        params[3]=INI_PHASE_PARAMS[3];
-        memcpy(params2,params,sizeof(double)*4);
+        ncalib=3;
+        memcpy(params2,params,sizeof(double)*3);
     }
     int USE_CALIB=LC->calib;
-    int ncalib=0;
-    if(USE_CALIB==1)
-        ncalib=4;
+   
     //This is for calibrated lightcurves end
     //LC albedo variegation
     int nAlbedo=0;
@@ -99,6 +98,27 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             AOds=calloc(nAOtotal*nAO,sizeof(double));
             nAOscale=nAO;
         }
+    }
+    int nCRtotal=0;
+    int nCRcols=0;
+    int nCRoffsets=0;
+    int nCR=0;
+    double* CRoffset,*CRoffset2;
+    double *CRdv;
+    double *CRout;
+    double *CRdoff;
+    double CRfit;
+    if(INI_HAVE_CNTR)
+    {
+        nCRtotal=2*(CR->ntotal);
+        nCRcols=3*nvert+3; //Columns in derivative matrix 3*vertices+angles
+        nCRoffsets=2*(CR->ncont);
+        nCR=CR->ncont;
+        CRout=calloc(nCRtotal,sizeof(double));
+        CRoffset=calloc(2*nCR,sizeof(double));
+        CRoffset2=calloc(2*nCR,sizeof(double));
+        CRdv=calloc(nCRtotal*(3*nvert+3),sizeof(double)); //derivative matrix, vertices+angles
+        CRdoff=calloc(nCRtotal*2*nCR,sizeof(double)); //derivative matrix, offsets
     }
    // print_matrix(AO->up,AO->nao,3);
     //Occultation data
@@ -209,10 +229,23 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     
    
     int Slength;
-    
+    double zm=0;
+    double *dzmdz;
+    int softmaxz=0;
+    if(INI_ZMAX_WEIGHT>0)
+    {
+        softmaxz=1;
+        dzmdz=calloc(nvert,sizeof(double));
+    }
+    int areareglength=0;
+    if(INI_AW>0) //Option to disable Area regularization
+    {
+        areareglength=nfacn;
+        
+    }
    
-    Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+nfacn+nvectorreg+nAlbreg; //LC points+AO points+OC points+RD points+convex reg+dihedral reg+area reg+[vector reg for free chords]+albedo reg
-    int nJcols=3*nvert+3+ncalib+nAlbedo+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp; //shape params+offset params and scale
+    Slength=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+areareglength+nvectorreg+nAlbreg+softmaxz+nCRtotal; //LC points+AO points+OC points+RD points+convex reg+dihedral reg+area reg+[vector reg for free chords]+albedo reg
+    int nJcols=3*nvert+3+ncalib+nAlbedo+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp+nCRoffsets; //shape params+offset params and scale
     int OCoffsetcolpos=3*nvert+3+nAOoffsets+nAOscale;
     int Chordoffsetcolpos=3*nvert+3+nAOoffsets+nAOscale+nOCoffsets;
     int OCrowpos=nLCtotal+nAOtotal;
@@ -221,8 +254,15 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     int RDrowpos=nLCtotal+nAOtotal+nOCtotal;
     int Albcolpos=3*nvert+3+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp;
     int regpos=nLCtotal+nAOtotal+nOCtotal+nRDtotal;
-    int Albregpos=regpos+1+1+nfacn+nvectorreg;
-   
+    int phasecolpos=3*nvert+3+nAlbedo+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp;
+    int Convregpos=regpos;
+    int Angregpos=regpos+1;
+    int Arearegpos=regpos+2;
+    int Zmaxregpos=Arearegpos+areareglength;
+    int Vectorregpos=Zmaxregpos+softmaxz;
+    int Albregpos=Vectorregpos+nvectorreg;
+    int CRoffsetcolpos=3*nvert+3+ncalib+nAlbedo+nAOoffsets+nAOscale+nOCoffsets+nChordoffsets+nRDoffsets+nRDscale+nRDexp;
+    int CRrowpos=nLCtotal+nAOtotal+nOCtotal+nRDtotal+1+1+areareglength+nvectorreg+nAlbreg+softmaxz;
         S=calloc(Slength,sizeof(double));
     J=calloc(Slength*(nJcols),sizeof(double));
     
@@ -256,10 +296,9 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         }
         if(INI_PHASE_MASK!=NULL)
         {
-            Mask[nJcols-4]=INI_PHASE_MASK[0];
-            Mask[nJcols-3]=INI_PHASE_MASK[1];
-            Mask[nJcols-2]=INI_PHASE_MASK[2];
-            Mask[nJcols-1]=INI_PHASE_MASK[3];
+           Mask[phasecolpos]=INI_PHASE_MASK[0];
+            Mask[phasecolpos+1]=INI_PHASE_MASK[1];
+            Mask[phasecolpos+2]=INI_PHASE_MASK[2];
             
         }
         
@@ -282,8 +321,8 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     X=calloc(nJcols,sizeof(double));
     //phase parameters
     double *dLCdp=NULL;
-    if(USE_CALIB==1)
-        dLCdp=calloc(nLCtotal*4,sizeof(double));
+    if(INI_PHASE_PARAMS!=NULL)
+        dLCdp=calloc(nLCtotal*3,sizeof(double));
     
     //Weights
     
@@ -306,6 +345,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
     int DONE=0;
    if(INI_RESTORE_STATE)
   {
+      printf("Restoring previous state from %s\n",INI_RESTORE_STATE);
       //Restore angles
      
       read_state_file(INI_RESTORE_STATE,"#Angles",angles,4);
@@ -385,6 +425,19 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                     set_submatrix(J,Slength,nJcols,AOds,nAOtotal,nAO,nLCtotal,nAOcols);
                 }
             }
+             if(INI_HAVE_CNTR)
+            {
+                Calculate_Contours(tlistn,vlistn,nfacn,nvertn,angles,CR,CRoffset,D,nvertn,nvert,CRout,CRdv,CRdoff);
+               
+                mult_with_cons(CRout,1,nCRtotal,INI_CNTR_WEIGHT);
+                mult_with_cons(CRdv,nCRtotal,3*nvert+3,-INI_CNTR_WEIGHT);
+                mult_with_cons(CRdoff,nCRtotal,nCRoffsets,-INI_CNTR_WEIGHT);
+                set_submatrix(S,1,Slength,CRout,1,nCRtotal,0,CRrowpos);
+                set_submatrix(J,Slength,nJcols,CRdv,nCRtotal,3*nvert+3,CRrowpos,0);
+                set_submatrix(J,Slength,nJcols,CRdoff,nCRtotal,nCRoffsets,CRrowpos,CRoffsetcolpos);
+                matrix_transprod(CRout,nCRtotal,1,&CRfit);
+              
+            }
             if(INI_HAVE_OC)
             {
                 if(INI_FREE_CHORD_NMR>0)
@@ -394,9 +447,9 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                     mult_with_cons(dChordoffset,nOCtotal,nChordoffsets,-ocW);
                     mult_with_cons(dvectorreg,1,nChordoffsets,-INI_CHRDW);
                     vectorreg*=INI_CHRDW;
-                    S[regpos+2+nfacn]=vectorreg; //NOTE ABSOLUTE ADDRESS HERE. FIX!
+                    S[Vectorregpos]=vectorreg; //NOTE ABSOLUTE ADDRESS HERE. FIX!
                     set_submatrix(J,Slength,nJcols,dChordoffset,nOCtotal,nChordoffsets,OCrowpos,Chordoffsetcolpos); //Chord offsets
-                    set_submatrix(J,Slength,nJcols,dvectorreg,1,nChordoffsets,regpos+2+nfacn,Chordoffsetcolpos);
+                    set_submatrix(J,Slength,nJcols,dvectorreg,1,nChordoffsets,Vectorregpos,Chordoffsetcolpos);
                 }
                     
                 else
@@ -457,11 +510,26 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             ///////////DEBUG///////////////////////////
 //             write_matrix_file("/tmp/dANGdv.txt",dANGdv,1,3*nvert+3);
             ///////////DEBUG///////////////////////////
-            area_reg(tlistn,vlistn,nfacn,nvertn,D,nvertn,nvert,Ares,dAdv); 
+            if(INI_AW>0)
+            {
+                area_reg(tlistn,vlistn,nfacn,nvertn,D,nvertn,nvert,Ares,dAdv); 
+                mult_with_cons(Ares,1,nfacn,aW);
+                mult_with_cons(dAdv,nfacn,3*nvert+3,-aW);
+                set_submatrix(S,1,Slength,Ares,1,nfacn,0,Arearegpos); //Area regularization
+                set_submatrix(J,Slength,nJcols,dAdv,nfacn,3*nvert+3,Arearegpos,0);
+                matrix_transprod(Ares,nfacn,1,&Aresfit);
+            } 
             ///////////DEBUG///////////////////////////
 //             write_matrix_file("/tmp/dAdv.txt",dAdv,nfacn,3*nvert+3);
             ///////////DEBUG///////////////////////////
-           
+           if(INI_ZMAX_WEIGHT>0)
+           {
+               soft_maxdimz(tlistn,vlistn,nfacn,nvertn,D,nvert,INI_ZMAX,1.0,&zm,dzmdz);
+               zm*=INI_ZMAX_WEIGHT;
+               mult_with_cons(dzmdz,1,nvert,-INI_ZMAX_WEIGHT);
+               S[Zmaxregpos]=zm;
+               set_submatrix(J,Slength,nJcols,dzmdz,1,nvert,Zmaxregpos,2*nvert);
+           }
             mult_with_cons(LCout,1,nLCtotal,lcW);
             mult_with_cons(dLCdv,nLCtotal,3*nvert+3,lcW);
             CRres*=cW;
@@ -469,8 +537,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             mult_with_cons(dCRdv,1,3*nvert+3,-cW);
             ANGres*=angW;
             mult_with_cons(dANGdv,1,3*nvert+3,-angW);
-            mult_with_cons(Ares,1,nfacn,aW);
-            mult_with_cons(dAdv,nfacn,3*nvert+3,-aW);
+           
              
             
             //Build the res vector and matrix
@@ -478,34 +545,41 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             
             
             
-            S[regpos]=CRres; //Convex reg terms
-            S[regpos+1]=ANGres;
+            S[Convregpos]=CRres; //Convex reg terms
+            S[Angregpos]=ANGres;
              
-            set_submatrix(S,1,Slength,Ares,1,nfacn,0,regpos+2); //Area regularization
+            
             
            
             matrix_transprod(LCout,nLCtotal,1,&LCfit);
             matrix_transprod(S,Slength,1,&chisq);
-            matrix_transprod(Ares,nfacn,1,&Aresfit);
-            printf("chisq: %f LCfit: %f AOfit: %f OCfit: %f RDfit: %f Convex reg: %f Dihedral Angle reg: %f Area reg:%f\n",chisq,LCfit,AOfit,OCfit,RDfit,pow(CRres,2),pow(ANGres,2),Aresfit); 
             
+            printf("chisq: %4.2f LCfit: %4.2f AOfit: %4.2f OCfit: %4.2f RDfit: %4.2f Convex reg: %4.2f Dihedral Angle reg: %4.2f",chisq,LCfit,AOfit,OCfit,RDfit,pow(CRres,2),pow(ANGres,2)); 
+            if(INI_AW>0)
+                printf(" Area reg: %4.2f",Aresfit);
+             if(INI_HAVE_CNTR>0)
+                printf(" CNTRfit: %4.2f",CRfit);
+            if(INI_ZMAX_WEIGHT>0)
+                printf(" Zmax reg: %f\n",pow(zm,2));
+            else
+                printf("\n");
             //Construct Jacobian matrix
             
             set_submatrix(J,Slength,nJcols,dLCdv,nLCtotal,3*nvert+3,0,0);
             
-            set_submatrix(J,Slength,nJcols,dCRdv,1,3*nvert+3,regpos,0);
-            set_submatrix(J,Slength,nJcols,dANGdv,1,3*nvert+3,regpos+1,0);
-            set_submatrix(J,Slength,nJcols,dAdv,nfacn,3*nvert+3,regpos+2,0);
+            set_submatrix(J,Slength,nJcols,dCRdv,1,3*nvert+3,Convregpos,0);
+            set_submatrix(J,Slength,nJcols,dANGdv,1,3*nvert+3,Angregpos,0);
+            
             
 //             write_matrix_file("/tmp/dCRdv.txt",dCRdv,1,3*nvert+3);
 //             write_matrix_file("/tmp/dANGdv.txt",dANGdv,1,3*nvert+3);
 //             write_matrix_file("/tmp/dAdv.txt",dAdv,nfacn,3*nvert+3);
             
             //include lc parameter derivatives
-            if(USE_CALIB==1)
+            if(INI_PHASE_PARAMS!=NULL)
             {
-                mult_with_cons(dLCdp,nLCtotal,4,lcW);
-                set_submatrix(J,Slength,nJcols,dLCdp,nLCtotal,4,0,nJcols-4);
+                mult_with_cons(dLCdp,nLCtotal,3,lcW);
+                set_submatrix(J,Slength,nJcols,dLCdp,nLCtotal,3,0,phasecolpos);
             }
             /////////////////DEBUG////////////////////////////////////////7
 //              write_matrix_file("/tmp/LCout.txt",LCout,1,nLCtotal);
@@ -553,6 +627,8 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             if(INI_AO_SCALING)
                 matrix_plus2(AOscale,1,nAO,&X[3*nvert+3+nAOoffsets],AOscale2);
         }
+        if(INI_HAVE_CNTR)
+           matrix_plus2(CRoffset,1,nCRoffsets,&X[CRoffsetcolpos],CRoffset2);
         if(INI_HAVE_OC)
         {
             matrix_plus2(OCoffset,1,nOCoffsets,&X[OCoffsetcolpos],OCoffset2);
@@ -570,12 +646,12 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         angles2[1]=angles[1]+X[3*nvert+1];
         angles2[2]=angles[2]+X[3*nvert+2];
         angles2[3]=angles[3];
-        if(USE_CALIB==1)
+        if(INI_PHASE_PARAMS!=NULL)
         {
-            params2[0]=params[0]+X[nJcols-4];
-            params2[1]=params[1]+X[nJcols-3];
-            params2[2]=params[2]+X[nJcols-2];
-            params2[3]=params[3]+X[nJcols-1];
+            params2[0]=params[0]+X[phasecolpos];
+            params2[1]=params[1]+X[phasecolpos+1];
+            params2[2]=params[2]+X[phasecolpos+2];
+          //  params2[3]=params[3]+X[nJcols-1];
         }
         if(INI_HAVE_RD)
         {
@@ -610,8 +686,14 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             if(INI_FREE_CHORD_NMR>0)
             {
                 vector_regularization(Chordoffset2,nChordoffsets,&vectorreg,dvectorreg);
-                S[Slength-1]=INI_CHRDW*vectorreg;
+                S[Vectorregpos]=INI_CHRDW*vectorreg;
             }
+        }
+          if(INI_HAVE_CNTR)
+        {
+            Calculate_Contours(tlistn,vlistn,nfacn,nvertn,angles2,CR,CRoffset2,D,nvertn,nvert,CRout,CRdv,CRdoff);
+            mult_with_cons(CRout,1,nCRtotal,INI_CNTR_WEIGHT);
+            set_submatrix(S,1,Slength,CRout,1,nCRtotal,0,CRrowpos);
         }
         if(INI_HAVE_RD)
         {
@@ -622,24 +704,33 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         
         convex_reg(tlistn,vlistn,nfacn,nvertn,D,nvertn,nvert,&CRres,dCRdv);
         dihedral_angle_reg(tlistn,vlistn,nfacn,nvertn,D,nvertn,nvert,&ANGres,dANGdv);
-        area_reg(tlistn,vlistn,nfacn,nvertn,D,nvertn,nvert,Ares,dAdv); 
+        if(INI_AW>0)
+        {
+            area_reg(tlistn,vlistn,nfacn,nvertn,D,nvertn,nvert,Ares,dAdv); 
+            mult_with_cons(Ares,1,nfacn,aW);
+            set_submatrix(S,1,Slength,Ares,1,nfacn,0,Arearegpos); //Area regularization
+        }
         mult_with_cons(LCout,1,nLCtotal,lcW);
         
         CRres*=cW;
         
         ANGres*=angW;
         
-        mult_with_cons(Ares,1,nfacn,aW);
+        
         
         set_submatrix(S,1,Slength,LCout,1,nLCtotal,0,0);
-        
-        S[regpos]=CRres; //Convex reg terms
-        S[regpos+1]=ANGres;
-        set_submatrix(S,1,Slength,Ares,1,nfacn,0,regpos+2); //Area regularization
+         if(INI_ZMAX_WEIGHT>0)
+        {
+            soft_maxdimz(tlistn,vlistn,nfacn,nvertn,D,nvert,INI_ZMAX,1.0,&zm,dzmdz);
+            zm*=INI_ZMAX_WEIGHT;
+            S[Zmaxregpos]=zm;
+        }
+        S[Convregpos]=CRres; //Convex reg terms
+        S[Angregpos]=ANGres;
         
         matrix_transprod(S,Slength,1,&chisq2);
         //matrix_transprod(AOout,nAOtotal,1,&AOfit);
-        printf("Round: %d chisq2: %f lambda: %f \n",k+1,chisq2,lambda);
+        printf("Round: %d chisq2: %4.2f lambda: %4.2f \n",k+1,chisq2,lambda);
         //printf("k=%d\n",k);
         if(chisq2<chisq)
         {
@@ -657,14 +748,16 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             angles[2]=angles2[2];
             if(INI_FIT_ALBEDO==1)
                 memcpy(eAlbedo,eAlbedo2,sizeof(double)*nfacn);
-            if(USE_CALIB==1)
-                memcpy(params,params2,sizeof(double)*4);
+            if(INI_PHASE_PARAMS!=NULL)
+                memcpy(params,params2,sizeof(double)*3);
             if(INI_HAVE_AO)
             {
                 memcpy(AOoffset,AOoffset2,sizeof(double)*(nAOoffsets));
                 if(INI_AO_SCALING)
                     memcpy(AOscale,AOscale2,sizeof(double)*nAO);
             }
+             if(INI_HAVE_CNTR)
+                memcpy(CRoffset,CRoffset2,sizeof(double)*nCRoffsets);
             if(INI_HAVE_OC)
             {
                 memcpy(OCoffset,OCoffset2,sizeof(double)*(nOCoffsets));
@@ -714,6 +807,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
              
              }
              Sqrt3_Subdiv(tlist,vlist,nfac,nvert,&tlistn,&vlistn,&nfacn,&nvertn,&D,INI_SD_LEVEL);
+               printf("Volume equivalent diameter: %4.3f \n",vol_eq_dia(tlistn,vlistn,nfacn,nvertn));
              printf("Writing shape information to %s\n",OUT_SHAPE_FILE);
             write_shape_file(OUT_SHAPE_FILE,tlistn,vlistn,nfacn,nvertn);
             FILE* fid=fopen(OUT_PARAM_FILE,"w");
@@ -733,6 +827,8 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 for(int j=0;j<LC->nlc;j++)
                     zero_array(LC->lcs[j],LC->nobs[j]);
                 Sqrt3_Subdiv(tlist,vlist,nfac,nvert,&tlistn,&vlistn,&nfacn,&nvertn,&D,INI_SD_LEVEL);
+                 for(int jk=0;jk<LC->nlc;jk++)
+                    INI_LC_WEIGHTS[jk]=1.0;
                 calculate_lcs(tlistn,vlistn,nfacn,nvertn,angles,LC,D,nvertn,nvert,LCout,dLCdv,eAlbedo,Alblimits,dLCdalb,params,dLCdp,0);
                 for(int j=0;j<LC->ntotal;j++)
                     fprintf(fidlc,"%f\n",-LCout[j]);
@@ -744,7 +840,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             if(params!=NULL)
             {
                 printf("Phase parameters:\n");
-                print_matrix(params,1,4);
+                print_matrix(params,1,3);
             }
             
             if(OUT_SHAPE_PARAM_FILE!=NULL)
@@ -776,7 +872,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 if(INI_PHASE_PARAMS!=NULL)
                 {
                     fprintf(fp,"#Phaseparams:\n");
-                    fprintf(fp,"%.4f %.4f %.4f %.4f\n",params[0],params[1],params[2],params[3]);
+                    fprintf(fp,"%.4f %.4f %.4f\n",params[0],params[1],params[2]);
                 }
                 if(INI_FIT_ALBEDO==1)
                 {

@@ -61,13 +61,13 @@ AOstruct * process_ao_images(char **filenames,char **psfnames,int nao,int *x0,in
         if(psfnames[j]!=NULL)
         {
             readfits(psfnames[j],&buffer,xp0[j],yp0[j],npx[j],npy[j],&date,&xsize,&ysize);
-            AO->psfr[j]=calloc(xsize*ysize/2,sizeof(double));
+            AO->psfr[j]=calloc(xsize*(ysize/2+1),sizeof(double));
             
-            AO->psfi[j]=calloc(xsize*ysize/2,sizeof(double));
-             psfr=calloc(xsize*ysize/2,sizeof(double));
-            psfi=calloc(xsize*ysize/2,sizeof(double));
-            freqx=calloc(xsize*ysize/2,sizeof(double));
-            freqy=calloc(xsize*ysize/2,sizeof(double));
+            AO->psfi[j]=calloc(xsize*(ysize/2+1),sizeof(double));
+             psfr=calloc(xsize*(ysize/2+1),sizeof(double));
+            psfi=calloc(xsize*(ysize/2+1),sizeof(double));
+            freqx=calloc(xsize*(ysize/2+1),sizeof(double));
+            freqy=calloc(xsize*(ysize/2+1),sizeof(double));
             calc_image_fft(buffer,xsize,ysize,dx[j],dy[j],psfr,psfi,freqx,freqy);
             free(freqx);
             free(freqy);
@@ -79,14 +79,26 @@ AOstruct * process_ao_images(char **filenames,char **psfnames,int nao,int *x0,in
             AO->psfi[j]=NULL;
         }
         readfits(filenames[j],&buffer,x0[j],y0[j],nx[j],ny[j],&date,&xsize,&ysize); 
-       datai=calloc(xsize*ysize/2,sizeof(double));
-        datar=calloc(xsize*ysize/2,sizeof(double));
-        freqx=calloc(xsize*ysize/2,sizeof(double));
-            freqy=calloc(xsize*ysize/2,sizeof(double));
-        AO->datar[j]=calloc(xsize*ysize/2,sizeof(double));
-        AO->datai[j]=calloc(xsize*ysize/2,sizeof(double));
-        AO->freqx[j]=calloc(xsize*ysize/2,sizeof(double));
-        AO->freqy[j]=calloc(xsize*ysize/2,sizeof(double));
+        if(INI_AO_REDUCE_ZERO!=NULL && INI_AO_REDUCE_ZERO[j]>0)
+        {
+            
+            double image_max=0;
+            for(int k=0;k<xsize*ysize;k++)
+                if(image_max<buffer[k])
+                    image_max=buffer[k];
+                printf("SetZero set, smaller than %f set to zero in image %d\n",INI_AO_REDUCE_ZERO[j]/100.0*image_max,j+1);
+            for(int k=0;k<xsize*ysize;k++)
+                if(buffer[k]<INI_AO_REDUCE_ZERO[j]/100.0*image_max)
+                    buffer[k]=0;
+        }
+       datai=calloc(xsize*(ysize/2+1),sizeof(double));
+        datar=calloc(xsize*(ysize/2+1),sizeof(double));
+        freqx=calloc(xsize*(ysize/2+1),sizeof(double));
+            freqy=calloc(xsize*(ysize/2+1),sizeof(double));
+        AO->datar[j]=calloc(xsize*(ysize/2+1),sizeof(double));
+        AO->datai[j]=calloc(xsize*(ysize/2+1),sizeof(double));
+        AO->freqx[j]=calloc(xsize*(ysize/2+1),sizeof(double));
+        AO->freqy[j]=calloc(xsize*(ysize/2+1),sizeof(double));
        
         calc_image_fft(buffer,xsize,ysize,dx[j],dy[j],datar,datai,freqx,freqy);
         
@@ -96,7 +108,7 @@ AOstruct * process_ao_images(char **filenames,char **psfnames,int nao,int *x0,in
             FreqCount=0;
             MaxFreqx=1.0/(4*dx[j]);
             MaxFreqy=1.0/(4*dy[j]);
-            for(int k=0;k<xsize*ysize/2-1;k++)
+            for(int k=1;k<xsize*(ysize/2+1);k++)
             {
                 if(fabs(freqx[k])<=MaxFreqx && fabs(freqy[k])<=MaxFreqy)
                 {
@@ -117,18 +129,18 @@ AOstruct * process_ao_images(char **filenames,char **psfnames,int nao,int *x0,in
         }
         else
         {
-        AO->nobs[j]=xsize*ysize/2-1;
-        ntotal+=xsize*ysize/2-1;
-        memcpy(AO->datar[j],datar,(xsize*ysize/2-1)*sizeof(double));
-        memcpy(AO->datai[j],datai,(xsize*ysize/2-1)*sizeof(double));
+        AO->nobs[j]=xsize*(ysize/2+1)-1;
+        ntotal+=xsize*(ysize/2+1)-1;
+        memcpy(AO->datar[j],datar+1,(xsize*(ysize/2+1)-1)*sizeof(double));
+        memcpy(AO->datai[j],datai+1,(xsize*(ysize/2+1)-1)*sizeof(double));
         if(psfnames[j]!=NULL)
         {
-        memcpy(AO->psfr[j],psfr,(xsize*ysize/2-1)*sizeof(double));
-        memcpy(AO->psfi[j],psfi,(xsize*ysize/2-1)*sizeof(double));
+        memcpy(AO->psfr[j],psfr+1,(xsize*(ysize/2+1)-1)*sizeof(double));
+        memcpy(AO->psfi[j],psfi+1,(xsize*(ysize/2+1)-1)*sizeof(double));
         
         }
-        memcpy(AO->freqx[j],freqx,(xsize*ysize/2-1)*sizeof(double));
-        memcpy(AO->freqy[j],freqy,(xsize*ysize/2-1)*sizeof(double));
+        memcpy(AO->freqx[j],freqx+1,(xsize*(ysize/2+1)-1)*sizeof(double));
+        memcpy(AO->freqy[j],freqy+1,(xsize*(ysize/2+1)-1)*sizeof(double));
         }
         if(!isnan(dates[j]))
         {

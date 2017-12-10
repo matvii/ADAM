@@ -21,6 +21,7 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
   double vect[3];
   double alb=0;
   double *dSdalb=NULL;
+    double albexp;
  if(A!=NULL)
  {
      albedo=1;
@@ -324,9 +325,12 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
         else
         {
             alb=A[j];
-            dSdalb[e*numfac+j]=phase*(ha-la)*exp(alb)/pow(exp(alb)+1,2)*Scatt*area[j];
             
-            alb_term=(la+(ha-la)*exp(alb)/(exp(alb)+1));
+            alb_term=(la+ha)/2+(ha-la)/2*tanh(alb);
+            dSdalb[e*numfac+j]=phase*(ha-la)/2*(1-pow(tanh(alb),2))*Scatt*area[j];
+           
+            
+            
         }
 	In=alb_term*Scatt;
 	tb[e]=tb[e]+phase*In*area[j];
@@ -457,11 +461,12 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
             suma=0;
             for(int k=0;k<nE;k++)
                 suma=suma+dSdalb[k*numfac+i];
+            
             for(int h=0;h<nE;h++)
                 dA[h*numfac+i]=nE*(sumbright*dSdalb[h*numfac+i]-tb[h]*suma)/sumbright2;
         }
       }
-       
+      
     }
     else
     {
@@ -475,6 +480,7 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
         if(albedo==1)
             memcpy(dA,dSdalb,sizeof(double)*numfac*nE);
     }
+    
     
       free(dSx);
       free(dSy);

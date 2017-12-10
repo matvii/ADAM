@@ -41,14 +41,13 @@ void calc_image_fft(double *M,int m,int n,double dx,double dy,double *zMr,double
         for(int j=0;j<n/2;j++)
         {
         
-            if(i==0&&j==0)
-                continue;
-            zMr[i*n/2+j-1]=pow(-1.0,i+j)*fft2_out[i*(n/2+1)+j].r/dc;
-            zMi[i*n/2+j-1]=pow(-1.0,i+j)*fft2_out[i*(n/2+1)+j].i/dc;
-            Fx[i*n/2+j-1]=j*1/Lx;
-            Fy[i*n/2+j-1]=i*1/Ly;
+            
+            zMr[i*n/2+j]=pow(-1.0,i+j)*fft2_out[i*(n/2+1)+j].r/dc;
+            zMi[i*n/2+j]=pow(-1.0,i+j)*fft2_out[i*(n/2+1)+j].i/dc;
+            Fx[i*n/2+j]=j*1/Lx;
+            Fy[i*n/2+j]=i*1/Ly;
             if(i>m/2-1)
-                Fy[i*n/2+j-1]=(i-m)*1/Ly;
+                Fy[i*n/2+j]=(i-m)*1/Ly;
         }
     }
     free(fft2_out);

@@ -81,7 +81,7 @@ void matrix_prod(double  *A,int m,int k,double  *B,int n,double  *C)
    
     cblas_dgemm(CblasRowMajor,CblasNoTrans,CblasNoTrans,m,n,k,1.0,A,k,B,n,0.0,C,n);
 }
-void solve_matrix_eqS(double *A,int m,double *B,double *X)
+int solve_matrix_eqS(double *A,int m,double *B,double *X)
 {
      /*A is symmetric mxm matrix, B is mx1 matrix, solution will be placed to X
      * Solve AX=B*/
@@ -96,10 +96,30 @@ info = LAPACKE_dsysv( LAPACK_ROW_MAJOR, 'L',m, 1, A,m, ipiv,
                 fprintf(stderr, "The element of the diagonal factor " );
                 fprintf(stderr, "D(%i,%i) is zero, so that D is singular;\n", info, info );
                 fprintf(stderr, "the solution could not be computed.\n" );
+               // exit( 1 );
+        }
+        return info;
+}
+int solve_matrix_eq_ls(double *A,int m,int n,double *B,double *X)
+{
+    /*
+     * Solve equation AX=B using SVD
+     * A is mxn matrix, B is nx1 
+     */
+    int info;
+    int rank;
+    double *s=calloc(m +n,sizeof(double));
+    memcpy(X,B,sizeof(double));
+    info=LAPACKE_dgelsd(LAPACK_ROW_MAJOR,m,n,1,A,n,X,1,s,-1,&rank);
+    free(s);
+    if( info > 0 ) {
+                printf( "The algorithm computing SVD failed to converge;\n" );
+                printf( "the least squares solution could not be computed.\n" );
                 exit( 1 );
         }
+        return info;
 }
-void solve_matrix_eq(double *A,int m,double *B,double *X)
+int solve_matrix_eq(double *A,int m,double *B,double *X)
 {
     /*A is mxm matrix, B is mx1 matrix, solution will be placed to X
      * Solve AX=B*/
@@ -112,6 +132,7 @@ void solve_matrix_eq(double *A,int m,double *B,double *X)
      
      info=LAPACKE_dgesv(LAPACK_ROW_MAJOR,m,1,A,m,ipiv,X,1);
      if (info != 0) fprintf(stderr, "failure in solve_matrix_eq with error %d\n", info);
+     return info;
 }
 void matrix_minus(double *A,int m,int n,double *B)
 {
@@ -210,7 +231,7 @@ void matrix_concat_special(double *A,int m,int k,double *B,double lambda,double 
       D[k*m+k*j+j]=slamb*sqrt(B[k*j+j]);
     *C=D;
 }
- void solve_matrix_eq_QR(double *A,int m,int k,double *B)
+int solve_matrix_eq_QR(double *A,int m,int k,double *B)
 {
     /*
      * A is mxk matrix, B is mx1 matrix, solution will be placed to B
@@ -227,8 +248,8 @@ void matrix_concat_special(double *A,int m,int k,double *B,double lambda,double 
     info = LAPACKE_dgels(LAPACK_ROW_MAJOR,'N', m, k, 1, A, k, B, 1);
         /* Check for convergence */
         if( info > 0 ) {
-                printf( "Matrix does not have full rank; the least squares solution could not be computed.\n" );
-                exit( 1 );
+                fprintf(stderr,"Matrix does not have full rank; the least squares solution could not be computed.\n" );
+                return info;
         }
 } 
 void matrix_concat_special2(double *A,int m,int k,double *B,double lambda,double **C)

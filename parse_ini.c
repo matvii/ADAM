@@ -16,6 +16,7 @@ int     INI_HAVE_RD=0;
 int     INI_HAVE_CNTR=0;
 int     INI_CNTR_IS_SPARSE=0;
 int     INI_CNTR_RAD=0;
+int INI_FIT_AO_ALBEDO=0;
 double INI_ANGLE_B=NAN;
 double INI_ANGLE_L=NAN;
 double INI_ANGLE_P=NAN;
@@ -46,6 +47,7 @@ double INI_AOW=0;
 double INI_OCW=0;
 double INI_CW=0;
 double INI_AW=0;
+double INI_DW_DEC=1.0;
 double INI_DW=0;
 double INI_OW=0;
 double INI_RW=0;
@@ -80,17 +82,20 @@ int INI_FREE_CHORD_NMR=0;
 int INI_FIX_SHAPE=0;
 int INI_FIX_ANGLES=0;
 int INI_FIX_A1=0;
+int INI_STAR_SHAPED=0;
 int INI_LC_ARE_RELATIVE=0;
 int INI_FIT_ALBEDO=0;
 double INI_ALBREGW=1;
 double INI_ALBEDO_MAX=1;
 double INI_ALBEDO_MIN=0;
 double INI_NDCHORD_WEIGHT=1000;
+double INI_COM_WEIGHT=0.0;
 int INI_LOGEXP=4;
 char *INI_WRITE_STATE_FILE=NULL;
 char *INI_ALBEDO_OUT_FILE=NULL;
 char *OUT_OBJSHAPE_FILE=NULL;
 char *INI_RESTORE_STATE=NULL;
+double *INI_AO_REDUCE_ZERO=NULL;
 int parse_ini(char *filename)
 {
     char *ephmfile;
@@ -102,7 +107,7 @@ int parse_ini(char *filename)
     int UseAOWeight=0;
     dictionary *ini;
     ini=iniparser_load(filename);
-    
+    int GlobalAOLowFreq=0;
     if(ini==NULL)
     {
         perror("Cannot load ini file\n");
@@ -169,13 +174,16 @@ int parse_ini(char *filename)
     s=iniparser_getstring(ini,"Shape:FixShape",NULL);
     if(s!=NULL)
         INI_FIX_SHAPE=atoi(s);
+    s=iniparser_getstring(ini,"Shape:StarShaped",NULL);
+    if(s!=NULL)
+        INI_STAR_SHAPED=atoi(s);
     s=iniparser_getstring(ini,"Shape:FixAngles",NULL);
     if(s!=NULL)
         INI_FIX_ANGLES=atoi(s);
     s=iniparser_getstring(ini,"Shape:FixA1",NULL);
     if(s!=NULL)
         INI_FIX_A1=atoi(s);
-    if(INI_FIX_SHAPE==1 || INI_FIX_ANGLES==1 ||INI_FIX_A1==1)
+    if(INI_FIX_SHAPE==1 || INI_FIX_ANGLES==1 ||INI_FIX_A1==1 || INI_STAR_SHAPED==1)
         INI_MASK_SET=1;
     //Parse optimization
     s=iniparser_getstring(ini,"Optimization:NumberofRounds","50");
@@ -194,6 +202,8 @@ int parse_ini(char *filename)
     INI_AW=atof(s);
     s=iniparser_getstring(ini,"Optimization:DiAWeight","2");
     INI_DW=atof(s);
+    s=iniparser_getstring(ini,"Optimization:DiAWeightDec","1");
+    INI_DW_DEC=atof(s);
     s=iniparser_getstring(ini,"Optimization:OctWeight","20");
     INI_OW=atof(s);
     s=iniparser_getstring(ini,"Optimization:RDWeight","1");
@@ -223,6 +233,16 @@ int parse_ini(char *filename)
     s=iniparser_getstring(ini,"Optimization:RestrictZcoordWeight",NULL);
     if(s!=NULL)
         INI_ZMAX_WEIGHT=atof(s);
+    s=iniparser_getstring(ini,"Optimization:COMWeight","0");
+    if(s!=NULL)
+        INI_COM_WEIGHT=atof(s);
+    s=iniparser_getstring(ini,"Optimization:FitAOAlbedo","0");
+    if(s!=NULL)
+        INI_FIT_AO_ALBEDO=atoi(s);
+    s=iniparser_getstring(ini,"Optimization:AOLowFreq",NULL);
+    if(s!=NULL)
+        GlobalAOLowFreq=atoi(s);
+    
     s=iniparser_getstring(ini,"Data:UseLC","1");
     INI_HAVE_LC=atoi(s);
     s=iniparser_getstring(ini,"Data:UseAO","0");
@@ -307,6 +327,14 @@ int parse_ini(char *filename)
     INI_ALBEDO_MAX=atof(s);
     s=iniparser_getstring(ini,"LC:AlbedoMin","0");
     INI_ALBEDO_MIN=atof(s);
+    s=iniparser_getstring(ini,"Optimization:FitAOAlbedo","0");
+    if(s!=NULL)
+        INI_FIT_AO_ALBEDO=atoi(s);
+    if(INI_FIT_AO_ALBEDO==1 && INI_FIT_ALBEDO==0)
+    {
+        fprintf(stderr,"FitAOALbedo is set but LC:FitAlbedo is not. Setting LC:FitAlbedo to 1. Remember also set LC:ALbedoMax and AlbedoMin. to reasonable values\n");
+        INI_FIT_ALBEDO=1;
+    }
     
     //If AO data exists, read the images
     char **AOfiles;
@@ -369,6 +397,13 @@ int parse_ini(char *filename)
         INI_WRITE_STATE_FILE=calloc(strlen(s)+1,sizeof(char));
         strcpy(INI_WRITE_STATE_FILE,s);
     }
+    if(INI_CHECKFIT==1)
+    {
+        if(s==NULL)
+            perror("Error: checkfit passed, but StateFile not set in the inifile");
+        INI_RESTORE_STATE=calloc(strlen(INI_WRITE_STATE_FILE)+1,sizeof(char));
+        strcpy(INI_RESTORE_STATE,INI_WRITE_STATE_FILE);
+    }
     s=iniparser_getstring(ini,"Output:AlbedoFile",NULL);
     if(s!=NULL)
     {
@@ -399,6 +434,7 @@ int parse_ini(char *filename)
     
     if(nAO>0)
     {
+    INI_AO_REDUCE_ZERO=calloc(nAO,sizeof(double));
     INI_AO_ROTANGLE=calloc(nAO,sizeof(double));
     int *LowFreq=calloc(nAO,sizeof(int));
     AOfiles=calloc(nAO,sizeof(char*));
@@ -447,6 +483,10 @@ int parse_ini(char *filename)
             PSFfiles[j]=calloc(strlen(s)+1,sizeof(char));
             strcpy(PSFfiles[j],s);
             }
+            snprintf(sect,20,"AO%d:SetZero",j+1);
+            s=iniparser_getstring(ini,sect,NULL);
+            if(s!=NULL)
+                INI_AO_REDUCE_ZERO[j]=atof(s);
              snprintf(sect,20,"AO%d:AORect",j+1); 
             s=iniparser_getstring(ini,sect,NULL);
             if(s!=NULL)
@@ -550,7 +590,10 @@ int parse_ini(char *filename)
         
     
     int Large=100;
-    
+    if(GlobalAOLowFreq==1)
+        for(int jk=0;jk<nAO;jk++)
+            LowFreq[jk]=1;
+        
     
       double *E=calloc(Large*3,sizeof(double));
     double *E0=calloc(Large*3,sizeof(double));

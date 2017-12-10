@@ -39,7 +39,7 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
         ntpoints=cumpoints[nlc]; //Total number of observed points
     
     zero_array(dLCdv,ntpoints*(3*nvertf+3));
-     if(Albedo!=NULL)
+     if(dAlb!=NULL)
          zero_array(dAlb,ntpoints*nfac);
      if(dparams!=NULL)
          zero_array(dparams,ntpoints*3);
@@ -121,7 +121,6 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
               mult_with_cons(dbrightb,pinlc,1,lcw);
               mult_with_cons(dbrightl,pinlc,1,lcw);
               mult_with_cons(dbrighto,pinlc,1,lcw);
-              
               
             }
             set_submatrix(dLCdv,ntpoints,3*nvertf+3,dbrightx,pinlc,nvertf,cind,0);

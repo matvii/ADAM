@@ -13,7 +13,7 @@ ADAM is a program for 3D shape reconstruction of asteroids from disk-resolved ob
 
 KissFFT, Iniparser and Wcstools folders are included for convenience; they come with their own licenses.
 
-## Building
+## How to build
 - Build Iniparser
 - Build Wcstools
 - Change Makefile to reflect installed libraries, i.e. change reflapacke, reflapack, atlas and atlcbas.
@@ -70,6 +70,12 @@ Matti Viikinkoski (matti.viikinkoski@gmail.com)
 
 #### 23.3.2017
 - Support for contour(full or sparse)  fitting, see contour.ini for an example
+
+#### 10.12.2017
+- Support for Center-of-Mass regularization (Set COMWeight= in [Optimization])
+- Support for hard thresholding AO data (Set SetZero=20 in [AO?] to zero all the pixels that are smaller than 0.2*max value)
+- A matlab gui for viewing ADAM reconstructed shapes (See install and usage.txt in Utils/matlab/adam_gui)
+- Some minor bugfixes
 
 #### TODO
 - Integration of thermal modelling stuff into the main program
