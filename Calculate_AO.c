@@ -231,8 +231,11 @@ void Calculate_AO_deriv(int *tlist,double *vlist,int nfac,int nvert,double *angl
      
      la=Alimit[0];
      ha=Alimit[1];
+     if(INI_FIT_AO_ALBEDO==1)
+     {
      dAlb=calloc(nfreq*nfac,sizeof(double complex));
      dAlbTB=calloc(nfac,sizeof(double));
+     }
  }
  
  
@@ -419,7 +422,7 @@ for(int j=0;j<nfac;j++)
      for(int jf=0;jf<nfreq;jf++)
      {
      F[jf]+=alb_term*B*F0[jf];
-     if(albedo==1)
+     if(albedo==1 && INI_FIT_AO_ALBEDO==1)
      {
         dAlb[jf*nfac+j]=(ha-la)/2*(1-pow(tanh(alb),2))*B*F0[jf];
         
@@ -443,7 +446,7 @@ for(int j=0;j<nfac;j++)
      }
     
       TB=TB+alb_term*B*area*mu;
-        if(albedo==1)
+        if(albedo==1 && INI_FIT_AO_ALBEDO==1)
         {
             
             dAlbTB[j]=(ha-la)/2*(1-pow(tanh(alb),2))*B*area*mu;
@@ -480,7 +483,7 @@ for(int j=0;j<nfreq;j++)
   dFdoffr[j*2+1]=creal(2.0*I*PI*freqy[j]*temp);
   dFdoffi[j*2+1]=cimag(2.0*I*PI*freqy[j]*temp);
 }
-if(albedo==1)
+if(albedo==1 && INI_FIT_AO_ALBEDO==1)
 {
     for(int k=0;k<nfac;k++)
         for(int j=0;j<nfreq;j++)

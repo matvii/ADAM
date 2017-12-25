@@ -1042,7 +1042,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 {
                     fprintf(fp,"#Albedo: %d\n",nfacn);
                     for(int j=0;j<nfacn;j++)
-                        fprintf(fp,"%.4f ",Alblimits[0]+(Alblimits[1]-Alblimits[0])*exp(eAlbedo[j])/(exp(eAlbedo[j])+1.0));
+                        fprintf(fp,"%.4f ",(Alblimits[0]+Alblimits[1])/2.0+(Alblimits[1]-Alblimits[0])/2.0*tanh(eAlbedo[j]));
                   fprintf(fp,"\n");
                   fprintf(fp,"#Albedolog: %d\n",nfacn);
                     for(int j=0;j<nfacn;j++)
@@ -1121,7 +1121,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             {
                 double *falbedo=calloc(nfacn,sizeof(double));
                 for(int j=0;j<nfacn;j++)
-                    falbedo[j]=Alblimits[0]+(Alblimits[1]-Alblimits[0])*exp(eAlbedo[j])/(exp(eAlbedo[j])+1.0);
+                    falbedo[j]=(Alblimits[0]+Alblimits[1])/2.0+(Alblimits[1]-Alblimits[0])/2.0*tanh(eAlbedo[j]);
                 write_matrix_file(INI_ALBEDO_OUT_FILE,falbedo,1,nfacn);
                 free(falbedo);
             }

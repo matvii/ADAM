@@ -981,7 +981,7 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD,
                 {
                     fprintf(fp,"#Albedo: %d\n",nfac);
                     for(int j=0;j<nfac;j++)
-                        fprintf(fp,"%.2f ",Alblimits[0]+(Alblimits[1]-Alblimits[0])*exp(eAlbedo[j])/(exp(eAlbedo[j])+1.0));
+                        fprintf(fp,"%.2f ",(Alblimits[0]+Alblimits[1])/2.0+(Alblimits[1]-Alblimits[0])/2.0*tanh(eAlbedo[j]));
                   fprintf(fp,"\n");
                   fprintf(fp,"#Albedolog: %d\n",nfac);
                     for(int j=0;j<nfac;j++)
