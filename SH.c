@@ -3,9 +3,9 @@
  * From Spherical Harmonic Lighting: The Gritty Details
  * by Robin Green
  */
-long int factorial(int n)
+double factorial(int n)
 {
-long int k=1;
+double k=1;
 for(int i=1;i<=n;i++)
   k*=i;
 return k;

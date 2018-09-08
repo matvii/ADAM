@@ -2,7 +2,7 @@
 #include"matrix_ops.h"
 
 
-
+#define INI_MAX_RD_ANGLE 60
 void multmat(double A[3][3],double B[3][3],double C[3][3])
 {
   for(int i=0;i<3;i++)
@@ -27,7 +27,7 @@ void Calculate_Frame_Matrix_Derivatives(double *E,double *angles,double TIME,dou
 void Calculate_Frame_Matrix2(double *E,double *angles,double TIME,double freq,double R[3][3]);
 void Calculate_Normal_Derivative(double *v1,double *v2,double *v3,double *n1dx,double *n2dx,double *n3dx,double *n1dy,double *n2dy,double *n3dy,double *n1dz,double *n2dz,double *n3dz);
 
-void Calculate_Range_Doppler_deriv(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *Eo,double TIME,double *freqx,double *freqy,int nfreq,double rfreq,double *offset,double scal,double rexpe,double* Fr,double *Fi,double *FTdxr,double *FTdxi,double *FTdyr,double *FTdyi,double *FTdzr,double *FTdzi,double *FTdAr,double *FTdAi,double  *FTdoffr,double *FTdoffi,double * FTdexpr,double *FTdexpi)
+void Calculate_Range_Doppler_deriv(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *Eo,double TIME,double *freqx,double *freqy,int nfreq,double rfreq,double *offset,double scal,double rexpe,double* Fr,double *Fi,double *FTdxrf,double *FTdxif,double *FTdyrf,double *FTdyif,double *FTdzrf,double *FTdzif,double *FTdArf,double *FTdAif,double  *FTdoffr,double *FTdoffi,double * FTdexpr,double *FTdexpi)
 {
 //Map triangle to the Range-Doppler frame
  double complex *F0,*FTda,*FTdb,*FTdc,*FTdd,*FTdh,*FTdg;
@@ -40,7 +40,19 @@ void Calculate_Range_Doppler_deriv(int *tlist,double *vlist,int nfac,int nvert,d
  FTdd=calloc(nfreq,sizeof(double complex));
  FTdh=calloc(nfreq,sizeof(double complex));
  FTdg=calloc(nfreq,sizeof(double complex));
- 
+ double dmudl,dmudb,dmudo;
+ double complex fscale;
+ double *FTdxr=calloc(nfreq*nvert,sizeof(double));
+ double *FTdxi=calloc(nfreq*nvert,sizeof(double));
+ double *FTdyr=calloc(nfreq*nvert,sizeof(double));
+ double *FTdyi=calloc(nfreq*nvert,sizeof(double));
+ double *FTdzr=calloc(nfreq*nvert,sizeof(double));
+ double *FTdzi=calloc(nfreq*nvert,sizeof(double));
+ double *FTdAr=calloc(nfreq*3,sizeof(double));
+ double *FTdAi=calloc(nfreq*3,sizeof(double));
+ int j1,j2,j3;
+ double max_cos_angle=cos(INI_MAX_RD_ANGLE*PI/180);
+ double dAdx[3],dAdy[3],dAdz[3];
  double M[3][3],dMb[3][3],dMo[3][3],dMl[3][3];
  double R[3][3],Rdb[3][3],Rdl[3][3],Rdo[3][3];
  double E[3],dEdb[3],dEdl[3],dEdo[3];
@@ -52,7 +64,8 @@ void Calculate_Range_Doppler_deriv(int *tlist,double *vlist,int nfac,int nvert,d
  double *v1,*v2,*v3;
  double scale;
  double complex tscale,FTC;
- double dadx,dady,dadz,dbdx,dbdy,dbdz;
+ double TB=0,area=0;
+ double dadx,dady,dadz,dbdx,dbdy,dbdz,dcdx,dcdy,dcdz;
  scale=exp(scal);
  int t1,t2,t3,blocker,sign;
  double mu,mub,ech,rexp;
@@ -63,8 +76,13 @@ void Calculate_Range_Doppler_deriv(int *tlist,double *vlist,int nfac,int nvert,d
  //Allocate for derivatives
  double dech=0.0; //placeholder of derivative of echo
  double dndx1[3],dndx2[3],dndx3[3],dndy1[3],dndy2[3],dndy3[3],dndz1[3],dndz2[3],dndz3[3];
-
+double *dTBdx,*dTBdy,*dTBdz; //Derivatives of total brightness, allocating memory
+ double dTBdA[3]={0.0,0.0,0.0};
+ dTBdx=calloc(nvert,sizeof(double));
+ dTBdy=calloc(nvert,sizeof(double));
+ dTBdz=calloc(nvert,sizeof(double));
  double v1db[3],v1dl[3],v1do[3],v2db[3],v2dl[3],v2do[3],v3db[3],v3dl[3],v3do[3];
+ double dmudx1,dmudy1,dmudz1,dmudx2,dmudy2,dmudz2,dmudx3,dmudy3,dmudz3;
   //Allocate for memory
   normal=calloc(3*nfac,sizeof(double));
   centroid=calloc(3*nfac,sizeof(double));
@@ -78,7 +96,9 @@ void Calculate_Range_Doppler_deriv(int *tlist,double *vlist,int nfac,int nvert,d
   dbdx=R[1][0];
   dbdy=R[1][1];
   dbdz=R[1][2];
-  
+  dcdx=R[2][0];
+  dcdy=R[2][1];
+  dcdz=R[2][2];
  
   //Ok, R is the conversion matrix, rotation angles included, so use Eo
   //Find possible blockers
@@ -100,17 +120,22 @@ void Calculate_Range_Doppler_deriv(int *tlist,double *vlist,int nfac,int nvert,d
   */
  
  //printf("nfac: %d\n",nfac);
+// printf("offset: %f %f\n",offset[0],offset[1]);
  for(int j=0;j<nfac;j++)
  {
    
    n=&normal[3*j];
    mu=DOT(E,n); //Check if facet is even pointed towards the radar
-  
+  j1=tlist[j*3]-1;
+   j2=tlist[j*3+1]-1;
+   j3=tlist[j*3+2]-1;
    if(mu<EP)
      continue;
-   
+   if(mu<max_cos_angle)
+       continue;
    //Test for blocking facets
    //Facet centroid
+   
    cent=&centroid[3*j]; //j starts from 0
    blocked=0;
    
@@ -148,7 +173,7 @@ void Calculate_Range_Doppler_deriv(int *tlist,double *vlist,int nfac,int nvert,d
      //Calculate normal derivatives
      
      //Ok, so this facet is visible. Calculate echo
-     rexp=exp(rexpe);
+     rexp=exp(rexpe)-1;
      //mu=DOT(E,n);
      ech=pow(mu,rexp);
     // printf("ech: %f\n",ech);
@@ -161,7 +186,20 @@ void Calculate_Range_Doppler_deriv(int *tlist,double *vlist,int nfac,int nvert,d
      v2=&vlist[3*(t2-1)];
      v3=&vlist[3*(t3-1)];
      //Calculate Normal derivatives (in the original frame)
-     Calculate_Normal_Derivative(v1,v2,v3,dndx1,dndx2,dndx3,dndy1,dndy2,dndy3,dndz1,dndz2,dndz3);
+     //Calculate_Normal_Derivative(v1,v2,v3,dndx1,dndx2,dndx3,dndy1,dndy2,dndy3,dndz1,dndz2,dndz3);
+     Calculate_Area_and_Normal_Derivative(v1,v2,v3,n,dndx1,dndx2,dndx3,dndy1,dndy2,dndy3,dndz1,dndz2,dndz3,&area,dAdx,dAdy,dAdz);
+     dmudx1=DOT(E,dndx1);
+     dmudx2=DOT(E,dndx2);
+     dmudx3=DOT(E,dndx3);
+     dmudy1=DOT(E,dndy1);
+     dmudy2=DOT(E,dndy2);
+     dmudy3=DOT(E,dndy3);
+     dmudz1=DOT(E,dndz1);
+     dmudz2=DOT(E,dndz2);
+     dmudz3=DOT(E,dndz3);
+     dmudb=DOT(dEdb,n);
+     dmudl=DOT(dEdl,n);
+     dmudo=DOT(dEdo,n);
      //Calculate echo derivative
      dech=ech*log(mu)*rexp;
      dechdx[0]=rexp*pow(mu,rexp-1)*(DOT(E,dndx1));
@@ -192,7 +230,7 @@ void Calculate_Range_Doppler_deriv(int *tlist,double *vlist,int nfac,int nvert,d
        sign=-1;
      else
        sign=1;
-     
+    Calculate_Area_and_Normal_Derivative(vr1,vr2,vr3,n,dndx1,dndx2,dndx3,dndy1,dndy2,dndy3,dndz1,dndz2,dndz3,&area,dAdx,dAdy,dAdz);
      //x coordinate is the delay, y frequency
      //Now we should convert to frequency domain, ie calculate the contribution of each facet
      Calc_FTC_deriv(freqx,freqy,nfreq,vr1[0],vr1[1],vr2[0],vr2[1],vr3[0],vr3[1],F0,FTda,FTdb,FTdc,FTdd,FTdg,FTdh);
@@ -216,6 +254,7 @@ void Calculate_Range_Doppler_deriv(int *tlist,double *vlist,int nfac,int nvert,d
     // printf("Matrix:\n");
      //for(int db=0;db<3;db++)
    //printf("%f %f %f\n",R[db][0],R[db][1],R[db][2]);
+     
      for(int jf=0;jf<nfreq;jf++)
      {
        tscale=scale*cexp(2*PI*I*(offset[0]*freqx[jf]+offset[1]*freqy[jf]));
@@ -286,15 +325,70 @@ void Calculate_Range_Doppler_deriv(int *tlist,double *vlist,int nfac,int nvert,d
        FTdexpr[jf]+=creal(sign*dech*FTC);
        FTdexpi[jf]+=cimag(sign*dech*FTC);
        //FTdoff[jf*2+0]+=sign*(2*PI*ech*I*freqx[jf]*FTC);
-       FTdoffr[jf*2+0]+=creal(sign*(2*PI*ech*I*freqx[jf]*FTC));
-       FTdoffi[jf*2+0]+=cimag(sign*(2*PI*ech*I*freqx[jf]*FTC));
+       //FTdoffr[jf*2+0]+=creal(sign*(2*PI*ech*I*freqx[jf]*FTC));
+       //FTdoffi[jf*2+0]+=cimag(sign*(2*PI*ech*I*freqx[jf]*FTC));
        //FTdoff[jf*2+1]+=sign*(2*PI*ech*I*freqy[jf]*FTC);
-       FTdoffr[jf*2+1]+=creal(sign*(2*PI*ech*I*freqy[jf]*FTC));
-       FTdoffi[jf*2+1]+=cimag(sign*(2*PI*ech*I*freqy[jf]*FTC));
+       //FTdoffr[jf*2+1]+=creal(sign*(2*PI*ech*I*freqy[jf]*FTC));
+      // FTdoffi[jf*2+1]+=cimag(sign*(2*PI*ech*I*freqy[jf]*FTC));
      
   //printf("%f %f %f %f %f %f\n",vr1[0],vr1[1],vr2[0],vr2[1],vr3[0],vr3[1]);
+       
  }
+// printf("j:%d tscale: %f %f scale: %f sign: %d ech: %f\n",j,creal(tscale),cimag(tscale),scale,sign,ech);
+ TB+=mu*ech*area;
+ dTBdx[j1]+=dmudx1*ech*area+mu*dechdx[0]*area+mu*ech*(dAdx[0]*dadx+dAdy[0]*dbdx+dAdz[0]*dcdx);
+ dTBdx[j2]+=dmudx2*ech*area+mu*dechdx[1]*area+mu*ech*(dAdx[1]*dadx+dAdy[1]*dbdx+dAdz[1]*dcdx);
+ dTBdx[j3]+=dmudx3*ech*area+mu*dechdx[2]*area+mu*ech*(dAdx[2]*dadx+dAdy[2]*dbdx+dAdz[2]*dcdx);
+ dTBdy[j1]+=dmudy1*ech*area+mu*dechdy[0]*area+mu*ech*(dAdx[0]*dady+dAdy[0]*dbdy+dAdz[0]*dcdy);
+ dTBdy[j2]+=dmudy2*ech*area+mu*dechdy[1]*area+mu*ech*(dAdx[1]*dady+dAdy[1]*dbdy+dAdz[1]*dcdy);
+ dTBdy[j3]+=dmudy3*ech*area+mu*dechdy[2]*area+mu*ech*(dAdx[2]*dady+dAdy[2]*dbdy+dAdz[2]*dcdy);
+ dTBdz[j1]+=dmudz1*ech*area+mu*dechdz[0]*area+mu*ech*(dAdx[0]*dadz+dAdy[0]*dbdz+dAdz[0]*dcdz);
+ dTBdz[j2]+=dmudz2*ech*area+mu*dechdz[1]*area+mu*ech*(dAdx[1]*dadz+dAdy[1]*dbdz+dAdz[1]*dcdz);
+ dTBdz[j3]+=dmudz3*ech*area+mu*dechdz[2]*area+mu*ech*(dAdx[2]*dadz+dAdy[2]*dbdz+dAdz[2]*dcdz);
+ 
+ dTBdA[0]+=dmudb*ech*area+mu*dechdA[0]*area;
+ dTBdA[1]+=dmudl*ech*area+mu*dechdA[1]*area;
+ dTBdA[2]+=dmudo*ech*area+mu*dechdA[2]*area;
 }
+// printf("TB: %7.8f\n",TB);
+// write_matrix_file("/tmp/dTBdA.txt",dTBdA,1,3);
+// write_matrix_file("/tmp/dTBdx.txt",dTBdx,1,nvert);
+// write_matrix_file("/tmp/dTBdy.txt",dTBdy,1,nvert);
+// write_matrix_file("/tmp/dTBdz.txt",dTBdz,1,nvert);
+double TB2=pow(TB,2);
+
+double tempr,tempi;
+double fscalei,fscaler;
+for(int j=0;j<nfreq;j++)
+{
+   // fscale=scale*cexp(2.0*PI*I*(offset[0]*freqx[j]+offset[1]*freqy[j]));
+  //  fscaler=creal(fscale);
+   // fscalei=cimag(fscale);
+    for(int k=0;k<nvert;k++)
+    {
+        FTdxrf[j*nvert+k]=(FTdxr[j*nvert+k]*TB-Fr[j]*dTBdx[k])/TB2;
+        FTdxif[j*nvert+k]=(FTdxi[j*nvert+k]*TB-Fi[j]*dTBdx[k])/TB2;
+        FTdyrf[j*nvert+k]=(FTdyr[j*nvert+k]*TB-Fr[j]*dTBdy[k])/TB2;
+        FTdyif[j*nvert+k]=(FTdyi[j*nvert+k]*TB-Fi[j]*dTBdy[k])/TB2;
+        FTdzrf[j*nvert+k]=(FTdzr[j*nvert+k]*TB-Fr[j]*dTBdz[k])/TB2;
+        FTdzif[j*nvert+k]=(FTdzi[j*nvert+k]*TB-Fi[j]*dTBdz[k])/TB2;
+    }
+    FTdArf[j*3+0]=(FTdAr[j*3+0]*TB-Fr[j]*dTBdA[0])/TB2;
+    FTdAif[j*3+0]=(FTdAi[j*3+0]*TB-Fi[j]*dTBdA[0])/TB2; 
+    FTdArf[j*3+1]=(FTdAr[j*3+1]*TB-Fr[j]*dTBdA[1])/TB2;
+    FTdAif[j*3+1]=(FTdAi[j*3+1]*TB-Fi[j]*dTBdA[1])/TB2;     
+    FTdArf[j*3+2]=(FTdAr[j*3+2]*TB-Fr[j]*dTBdA[2])/TB2;
+    FTdAif[j*3+2]=(FTdAi[j*3+2]*TB-Fi[j]*dTBdA[2])/TB2;
+    temp=(Fr[j]+I*Fi[j])/TB;
+    Fr[j]=Fr[j]/TB;
+    Fi[j]=Fi[j]/TB;
+    FTdoffr[j*2+0]=creal(temp*2*PI*I*freqx[j]);
+    FTdoffi[j*2+0]=cimag(temp*2*PI*I*freqx[j]);
+    FTdoffr[j*2+1]=creal(temp*2*PI*I*freqy[j]);
+    FTdoffi[j*2+1]=cimag(temp*2*PI*I*freqy[j]);
+}
+//   write_matrix_file("/tmp/FTr1.txt",Fr,1,nfreq);
+//   write_matrix_file("/tmp/FTi1.txt",Fi,1,nfreq);  
   free(normal);
   free(centroid);
   free(IndexofBlocks);
@@ -306,6 +400,18 @@ void Calculate_Range_Doppler_deriv(int *tlist,double *vlist,int nfac,int nvert,d
   free(FTdd);
   free(FTdg);
   free(FTdh);
+  free(FTdxr);
+  free(FTdxi);
+  free(FTdyr);
+  free(FTdyi);
+  free(FTdzr);
+  free(FTdzi);
+  free(FTdAr);
+  free(FTdAi);
+  free(dTBdx);
+  free(dTBdy);
+  free(dTBdz);
+ 
 }
 void Calculate_Range_Doppler(int *tlist,double *vlist,int nfac,int nvert,double *angles,double *Eo,double TIME,double *freqx,double *freqy,int nfreq,double rfreq,double *offset,double scal,double rexpe,double * Fr,double *Fi)
 {
@@ -313,7 +419,7 @@ void Calculate_Range_Doppler(int *tlist,double *vlist,int nfac,int nvert,double 
  double complex *F0;
 // double complex *dFda,*dFdb,*dFdc,*dFdd,*dFdh,*dFdg;
  F0=calloc(nfreq,sizeof(double complex));
- 
+ double max_cos_angle=cos(INI_MAX_RD_ANGLE*PI/180);
  double M[3][3],dMb[3][3],dMo[3][3],dMl[3][3];
  double R[3][3],Rdb[3][3],Rdl[3][3],Rdo[3][3];
  double E[3],dEdb[3],dEdl[3],dEdo[3];
@@ -323,9 +429,9 @@ void Calculate_Range_Doppler(int *tlist,double *vlist,int nfac,int nvert,double 
  double *vb1,*vb2,*vb3;
  double vr1[3],vr2[3],vr3[3];
  double *v1,*v2,*v3;
- double scale;
- double complex tscale,FTC;
- double dadx,dady,dadz,dbdx,dbdy,dbdz;
+ double complex scale,tscale;
+ double complex fscale,FTC;
+ 
  scale=exp(scal);
  int t1,t2,t3,blocker,sign;
  double mu,mub,ech,rexp;
@@ -333,6 +439,7 @@ void Calculate_Range_Doppler(int *tlist,double *vlist,int nfac,int nvert,double 
  int *IndexofBlocks,*NumofBlocks;
  int tb1,tb2,tb3; //Indices to the vertices of possible blocker facet
  int blocked=0;
+ double TB=0,area;
  //Allocate for derivatives
  double dech=0.0; //placeholder of derivative of echo
  double dndx1[3],dndx2[3],dndx3[3],dndy1[3],dndy2[3],dndy3[3],dndz1[3],dndz2[3],dndz3[3];
@@ -361,6 +468,7 @@ void Calculate_Range_Doppler(int *tlist,double *vlist,int nfac,int nvert,double 
   */
  
  //printf("nfac: %d\n",nfac);
+// printf("offset: %f %f\n",offset[0],offset[1]);
  for(int j=0;j<nfac;j++)
  {
    
@@ -369,7 +477,8 @@ void Calculate_Range_Doppler(int *tlist,double *vlist,int nfac,int nvert,double 
   
    if(mu<EP)
      continue;
-   
+   if(mu<max_cos_angle)
+       continue;
    //Test for blocking facets
    //Facet centroid
    cent=&centroid[3*j]; //j starts from 0
@@ -409,7 +518,7 @@ void Calculate_Range_Doppler(int *tlist,double *vlist,int nfac,int nvert,double 
      //Calculate normal derivatives
      
      //Ok, so this facet is visible. Calculate echo
-     rexp=exp(rexpe);
+     rexp=exp(rexpe)-1;
      //mu=DOT(E,n);
      ech=pow(mu,rexp);
     // printf("ech: %f\n",ech);
@@ -446,7 +555,7 @@ void Calculate_Range_Doppler(int *tlist,double *vlist,int nfac,int nvert,double 
        sign=-1;
      else
        sign=1;
-     
+     area=NORM(normalr)*0.5;
      //x coordinate is the delay, y frequency
      //Now we should convert to frequency domain, ie calculate the contribution of each facet
      Calc_FTC(freqx,freqy,nfreq,vr1[0],vr1[1],vr2[0],vr2[1],vr3[0],vr3[1],F0);
@@ -463,7 +572,17 @@ void Calculate_Range_Doppler(int *tlist,double *vlist,int nfac,int nvert,double 
        Fi[jf]+=cimag(sign*ech*FTC);
       
  }
+// printf("j:%d tscale: %f %f scale: %f sign: %d ech: %f\n",j,creal(tscale),cimag(tscale),scale,sign,ech);
+ TB+=mu*ech*area;
 }
+//printf("TB: %7.8f\n",TB);
+for(int j=0;j<nfreq;j++)
+{
+    Fr[j]=Fr[j]/TB;
+    Fi[j]=Fi[j]/TB;
+}
+// write_matrix_file("/tmp/FTr2.txt",Fr,1,nfreq);
+//   write_matrix_file("/tmp/FTi2.txt",Fi,1,nfreq);  
 free(F0);
 free(normal);
 free(centroid);
@@ -509,15 +628,15 @@ void Calculate_Frame_Matrix_Derivatives(double *E,double *angles,double TIME,dou
   //E is the vector pointing to the radar (unrotated)
   //angles =beta,lambda,omega
   //R is the output, 3x3 matrix
-  double xr[3],yr[3],nyr,zr[3],nzr;
+  double xr[3],yr[3],nxr,zr[3],nzr;
   double w[3],w0[3];
   double M[3][3],Mdb[3][3],Mdl[3][3],Mdo[3][3],A[3][3],Mt[3][3];
   double omegas=angles[2]/(60.0*60.0*24); //rads/sec
   //double Erdb[3],Erdl[3],Erdo[3];
   double dwdb[3],dwdl[3],dwdo[3];
-  double yru[3],yrudb[3],yrudl[3],yrudo[3];
-  double nyrdb,nyrdo,nyrdl;
-  double yrdb[3],yrdl[3],yrdo[3];
+  double xru[3],xrudb[3],xrudl[3],xrudo[3];
+  double nxrdb,nxrdo,nxrdl;
+  double xrdb[3],xrdl[3],xrdo[3];
   double Adb[3][3],Adl[3][3],Ado[3][3];
   double dzdb[3],dzdl[3],dzdo[3];
   double Cdb[3][3]={0,0,0,0,0,0,0,0,0};
@@ -532,21 +651,25 @@ void Calculate_Frame_Matrix_Derivatives(double *E,double *angles,double TIME,dou
   w0[1]=0;
   w0[2]=omegas;
   
+  yr[0]=-E[0]; //yr points to asteroid
+  yr[1]=-E[1];
+  yr[2]=-E[2];
   rotate(angles[0],angles[1],angles[2],angles[3],TIME,M,Mdb,Mdl,Mdo);
   //Transpose Should transpose derivat
   transpose(M,Mt);
   mult_vector(Mt,w0,w); //Here is rotation vector in the global frame
-  cross(E,w,yr); //y vector, corresponds to frequency
-  nyr=NORM(yr);
-  yr[0]=yr[0]/nyr;
-  yr[1]=yr[1]/nyr;
-  yr[2]=yr[2]/nyr;
-  cross(E,yr,zr); //z vector, projection direction
+  
+  cross(E,w,xr); //x vector, corresponds to frequency
+  nxr=NORM(xr);
+  xr[0]=xr[0]/nxr;
+  xr[1]=xr[1]/nxr;
+  xr[2]=xr[2]/nxr;
+  cross(xr,yr,zr); //z vector, projection direction
   nzr=NORM(zr);
   zr[0]=zr[0]/nzr;
   zr[1]=zr[1]/nzr;
   zr[2]=zr[2]/nzr;
-  Convert_to_Matrix(E,yr,zr,A); //A converts x,y,z coordinates to delay, freq and projdir
+  Convert_to_Matrix(xr,yr,zr,A); //A converts x,y,z coordinates to freq, delay and projdir
   //A[0][0]=A[0][0]*(-2.0)/LTS*1.0e6; //In usec
   //A[1][1]=A[1][1]*2.0*freq/LTS*nyr;
   //Finally the rotation corresponding to angles
@@ -566,34 +689,34 @@ void Calculate_Frame_Matrix_Derivatives(double *E,double *angles,double TIME,dou
     dwdl[i]=Mdl[2][i]*omegas;
     dwdo[i]=Mdo[2][i]*omegas+M[2][i]*1.0/86400.0;
   }
-  cross(E,w,yru);
-  cross(E,dwdb,yrudb);
-  cross(E,dwdl,yrudl);
-  cross(E,dwdo,yrudo);
+  cross(E,w,xru);
+  cross(E,dwdb,xrudb);
+  cross(E,dwdl,xrudl);
+  cross(E,dwdo,xrudo);
   //Derivative of the norm
-  nyrdb=(DOT(yru,yrudb))*1.0/nyr;
-  nyrdl=(DOT(yru,yrudl))*1.0/nyr;
-  nyrdo=(DOT(yru,yrudo))*1.0/nyr;
+  nxrdb=(DOT(xru,xrudb))*1.0/nxr;
+  nxrdl=(DOT(xru,xrudl))*1.0/nxr;
+  nxrdo=(DOT(xru,xrudo))*1.0/nxr;
  // printf("nyr: \n %f %f %f\n",nyrdb,nyrdl,nyrdo);
   //Derivative of normalized vector
   for(int i=0;i<3;i++)
   {
-    yrdb[i]=(yrudb[i]*nyr-yru[i]*nyrdb)/pow(nyr,2);
-    yrdl[i]=(yrudl[i]*nyr-yru[i]*nyrdl)/pow(nyr,2);
-    yrdo[i]=(yrudo[i]*nyr-yru[i]*nyrdo)/pow(nyr,2);
+    xrdb[i]=(xrudb[i]*nxr-xru[i]*nxrdb)/pow(nxr,2);
+    xrdl[i]=(xrudl[i]*nxr-xru[i]*nxrdl)/pow(nxr,2);
+    xrdo[i]=(xrudo[i]*nxr-xru[i]*nxrdo)/pow(nxr,2);
   }
-  cross(E,yrdb,dzdb);
-  cross(E,yrdl,dzdl);
-  cross(E,yrdo,dzdo);
-  Convert_to_Matrix(zerovec,yrdb,dzdb,Adb);
-  Convert_to_Matrix(zerovec,yrdl,dzdl,Adl);
-  Convert_to_Matrix(zerovec,yrdo,dzdo,Ado);
-  C[0][0]=-2.0/LTS*1e6;
-  C[1][1]=2.0*freq/LTS*nyr;
+  cross(xrdb,yr,dzdb);
+  cross(xrdl,yr,dzdl);
+  cross(xrdo,yr,dzdo);
+  Convert_to_Matrix(xrdb,zerovec,dzdb,Adb);
+  Convert_to_Matrix(xrdl,zerovec,dzdl,Adl);
+  Convert_to_Matrix(xrdo,zerovec,dzdo,Ado);
+  C[0][0]=2.0*freq/LTS*nxr;
+  C[1][1]=2.0/LTS*1e6;
   C[2][2]=1;
-  Cdb[1][1]=2*freq/LTS*nyrdb;
-  Cdl[1][1]=2*freq/LTS*nyrdl;
-  Cdo[1][1]=2*freq/LTS*nyrdo;
+  Cdb[0][0]=2*freq/LTS*nxrdb;
+  Cdl[0][0]=2*freq/LTS*nxrdl;
+  Cdo[0][0]=2*freq/LTS*nxrdo;
   //Conversion matrices
   double Rdb1[3][3],Rdb2[3][3],Rdb3[3][3];
   double Rdl1[3][3],Rdl2[3][3],Rdl3[3][3];

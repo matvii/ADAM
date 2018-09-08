@@ -1,6 +1,7 @@
 #include"utils.h"
 #include"time.h"
 #include"globals.h"
+void dhapke_bright_fac(double *E,double *E0,double mu,double mu0,double *p,double th,double *rss,double *rdssdmu,double *rdssdmu0);
 void dec_vector(double x[3],double y[3],double z[3])
 {
   z[0]=x[0]-y[0];
@@ -18,6 +19,7 @@ double Calculate_AO(int *tlist,double *vlist,int nfac,int nvert,double *angles,d
 // double complex *dFda,*dFdb,*dFdc,*dFdd,*dFdh,*dFdg;
  F0=calloc(nfreq,sizeof(double complex));
  double AOalb=1;
+ double dt1,dt2;
  double complex *F=calloc(nfreq,sizeof(double complex));
  double M[3][3],dMb[3][3],dMo[3][3],dMl[3][3],Mt[3][3];
  double R[3][3],Rdb[3][3],Rdl[3][3],Rdo[3][3],RT[3][3];
@@ -46,7 +48,7 @@ int j1,j2,j3;
  double alb_term=0;
  double alb=0;
  int albedo=0;
- if(A!=NULL)
+ if(A!=NULL && INI_IGNORE_AO_ALBEDO==0)
  {
      albedo=1;
      la=Alimit[0];
@@ -151,8 +153,10 @@ FindActualBlockers(tlist,vlist,nfac,nvert,E,E0,1,visible);
             
             alb_term=(la+ha)/2+(ha-la)/2*tanh(alb);
         }
-    
-   B=mu0*(1.0/(mu+mu0)+0.1); //mu removed here
+    if(INI_HAPKE!=NULL)
+        dhapke_bright_fac(E,E0,mu,mu0,INI_HAPKE,INI_HAPKE[4],&B,&dt2,&dt1);
+    else
+        B=mu0*(1.0/(mu+mu0)+0.1); //mu removed here
      for(int jf=0;jf<nfreq;jf++)
      {
       
@@ -160,7 +164,10 @@ FindActualBlockers(tlist,vlist,nfac,nvert,E,E0,1,visible);
       
        
       }
-      TB=TB+alb_term*AOalb*B*area*mu;
+      if(INI_HAPKE!=NULL)
+          TB=TB+alb_term*AOalb*B*mu*area;
+      else
+        TB=TB+alb_term*AOalb*B*area*mu;
     
 
 }
@@ -225,7 +232,7 @@ void Calculate_AO_deriv(int *tlist,double *vlist,int nfac,int nvert,double *angl
   int albedo=0;
   double la,ha,alb_term=0;
   double albexp=0;
- if( A!=NULL)
+ if( A!=NULL && INI_IGNORE_AO_ALBEDO==0)
  {
      albedo=1;
      
@@ -387,10 +394,16 @@ for(int j=0;j<nfac;j++)
      dmu0db=DOT(dE0db,n);
      dmu0dl=DOT(dE0dl,n);
      dmu0do=DOT(dE0do,n);
-   B=mu0*(1.0/(mu+mu0)+0.1); //mu removed here
+   if(INI_HAPKE!=NULL)
+        dhapke_bright_fac(E,E0,mu,mu0,INI_HAPKE,INI_HAPKE[4],&B,&mut,&mu0t);
+    else
+    {
+        B=mu0*(1.0/(mu+mu0)+0.1); //mu removed here
+        mu0t=(mu/pow(mu+mu0,2)+0.1);
+        mut=-mu0/pow(mu+mu0,2);
+    }
    //Derivatives of B
-   mu0t=(mu/pow(mu+mu0,2)+0.1);
-   mut=-mu0/pow(mu+mu0,2);
+   
    dBdx1=mu0t*dmu0dx1+mut*dmudx1;
    dBdx2=mu0t*dmu0dx2+mut*dmudx2;
    dBdx3=mu0t*dmu0dx3+mut*dmudx3;
@@ -406,20 +419,22 @@ for(int j=0;j<nfac;j++)
    dBdl=mu0t*dmu0dl+mut*dmudl;
    dBdo=mu0t*dmu0do+mut*dmudo;
    //Derivative of total brightness
-   dTBdx[j1]+=dBdx1*area*mu+B*dAdx[0]*mu+B*area*dmudx1;
-   dTBdx[j2]+=dBdx2*area*mu+B*dAdx[1]*mu+B*area*dmudx2;
-   dTBdx[j3]+=dBdx3*area*mu+B*dAdx[2]*mu+B*area*dmudx3;
-   dTBdy[j1]+=dBdy1*area*mu+B*dAdy[0]*mu+B*area*dmudy1;
-   dTBdy[j2]+=dBdy2*area*mu+B*dAdy[1]*mu+B*area*dmudy2;
-   dTBdy[j3]+=dBdy3*area*mu+B*dAdy[2]*mu+B*area*dmudy3;
-   dTBdz[j1]+=dBdz1*area*mu+B*dAdz[0]*mu+B*area*dmudz1;
-   dTBdz[j2]+=dBdz2*area*mu+B*dAdz[1]*mu+B*area*dmudz2;
-   dTBdz[j3]+=dBdz3*area*mu+B*dAdz[2]*mu+B*area*dmudz3;
-   dTBdA[0]+=dBdb*area*mu+B*area*dmudb;
-   dTBdA[1]+=dBdl*area*mu+B*area*dmudl;
-   dTBdA[2]+=dBdo*area*mu+B*area*dmudo;
    
-     for(int jf=0;jf<nfreq;jf++)
+       dTBdx[j1]+=dBdx1*area*mu+B*dAdx[0]*mu+B*area*dmudx1;
+       dTBdx[j2]+=dBdx2*area*mu+B*dAdx[1]*mu+B*area*dmudx2;
+       dTBdx[j3]+=dBdx3*area*mu+B*dAdx[2]*mu+B*area*dmudx3;
+       dTBdy[j1]+=dBdy1*area*mu+B*dAdy[0]*mu+B*area*dmudy1;
+       dTBdy[j2]+=dBdy2*area*mu+B*dAdy[1]*mu+B*area*dmudy2;
+       dTBdy[j3]+=dBdy3*area*mu+B*dAdy[2]*mu+B*area*dmudy3;
+       dTBdz[j1]+=dBdz1*area*mu+B*dAdz[0]*mu+B*area*dmudz1;
+       dTBdz[j2]+=dBdz2*area*mu+B*dAdz[1]*mu+B*area*dmudz2;
+       dTBdz[j3]+=dBdz3*area*mu+B*dAdz[2]*mu+B*area*dmudz3;
+       dTBdA[0]+=dBdb*area*mu+B*area*dmudb;
+       dTBdA[1]+=dBdl*area*mu+B*area*dmudl;
+       dTBdA[2]+=dBdo*area*mu+B*area*dmudo;
+       
+   
+   for(int jf=0;jf<nfreq;jf++)
      {
      F[jf]+=alb_term*B*F0[jf];
      if(albedo==1 && INI_FIT_AO_ALBEDO==1)
@@ -444,14 +459,24 @@ for(int j=0;j<nfac;j++)
        FTdA[jf*3+1]+=dBdl*F0[jf]+B*(FTda[jf]*v1dl[0]+FTdb[jf]*v1dl[1]+FTdc[jf]*v2dl[0]+FTdd[jf]*v2dl[1]+FTdg[jf]*v3dl[0]+FTdh[jf]*v3dl[1]);
        FTdA[jf*3+2]+=dBdo*F0[jf]+B*(FTda[jf]*v1do[0]+FTdb[jf]*v1do[1]+FTdc[jf]*v2do[0]+FTdd[jf]*v2do[1]+FTdg[jf]*v3do[0]+FTdh[jf]*v3do[1]);
      }
-    
+    if(INI_HAPKE!=NULL)
+    {
+        TB=TB+alb_term*B*area*mu;
+        if(albedo==1 && INI_FIT_AO_ALBEDO==1)
+        {
+            
+            dAlbTB[j]=(ha-la)/2*(1-pow(tanh(alb),2))*B*area*mu;
+        }
+    }
+    else
+    {
       TB=TB+alb_term*B*area*mu;
         if(albedo==1 && INI_FIT_AO_ALBEDO==1)
         {
             
             dAlbTB[j]=(ha-la)/2*(1-pow(tanh(alb),2))*B*area*mu;
         }
-            
+    }       
 }
 //mexPrintf("Total brightness: %f\n",TB);  
 //Normalize with total brightness

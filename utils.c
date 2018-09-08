@@ -54,6 +54,8 @@ void localsmooth(int *tlist,double *vlist,int nfac,int nvert,double *ealb,double
         set_el(drda,nfac,nfac,-1.0/3.0*albderiv,j,n2);
         set_el(drda,nfac,nfac,-1.0/3.0*albderiv,j,n3);
     }
+    free(alb);
+    free(Adj);
 }
 int find_index(double *vect,int n,double x)
 {
@@ -69,7 +71,7 @@ int find_index(double *vect,int n,double x)
             return index;
     }
     fprintf(stderr,"NO VALID DATE WITHIN TOLERANCE LIMITS\n");
-            exit(-1);
+            return -1;
 }
 double sinc(double x)
 {
@@ -218,7 +220,7 @@ void write_matrix_file(char * str,double *M,int m,int n)
     {
         for(int k=0;k<n;k++)
         {
-            fprintf(fp,"%.6f ",M[j*n+k]);
+            fprintf(fp,"%.9f ",M[j*n+k]);
         }
         if(m>1)
         fprintf(fp,"\n");
@@ -423,14 +425,14 @@ int read_state_file(char *filename,char *text,double *buffer,int n)
      int count=0;
      int cmp=0;
      char *buff;
-     buff=malloc(10000);
+     buff=malloc(10000*sizeof(double));
      if(fid==NULL)
     {
         perror("Error opening file in read_state_file");
         exit(-1);
     }
     
-    while(fgets(buff,10000,fid)!=NULL)
+    while(fgets(buff,10000*sizeof(double),fid)!=NULL)
     {
        // if(buff[0]=='#' || buff[0]==';')
         //    continue;
@@ -438,7 +440,7 @@ int read_state_file(char *filename,char *text,double *buffer,int n)
         
         if(strncmp(text,buff,strlen(text))==0)
         {
-            fgets(buff,10000,fid);
+            fgets(buff,10000*sizeof(double),fid);
             count=parse_vector(buff,buffer,n);
             break;
             
@@ -454,6 +456,7 @@ int read_state_fileI(char *filename,char *text,int *buffer,int n)
      * In a file named filename, find a line starting with text,
      * then read the next line into buffer
      */ 
+    
     if(n==0)
         return 0;
      FILE *fid;
@@ -462,23 +465,25 @@ int read_state_fileI(char *filename,char *text,int *buffer,int n)
      int count=0;
      int cmp=0;
      char *buff;
-     buff=malloc(10000);
+     buff=malloc(10000*sizeof(int));
      if(fid==NULL)
     {
         perror("Error opening file in read_state_file");
         exit(-1);
     }
-    
-    while(fgets(buff,10000,fid)!=NULL)
+  
+    while(fgets(buff,10000*sizeof(int),fid)!=NULL)
     {
        // if(buff[0]=='#' || buff[0]==';')
         //    continue;
         
-        
         if(strncmp(text,buff,strlen(text))==0)
         {
-            fgets(buff,10000,fid);
+            
+            fgets(buff,10000*sizeof(int),fid);
+            
             count=parse_vectorI(buff,buffer,n);
+           
             break;
             
     }
@@ -602,6 +607,29 @@ void  set_elI(int *A,int m,int n,int a,int i,int j)
         exit(1);
     }
     A[i*n+j]=a;
+}
+void  set_elS(short *A,int m,int n,int a,int i,int j)
+{
+    /*Given mxn matrix A, set element (i,j) to a 
+     * indexing starts from 0
+     * This version is for short ints*/
+    if(i>m-1 || j>n-1)
+    {
+        puts("Error: error in set_element, index too large. Bailing out!");
+        exit(1);
+    }
+    A[i*n+j]=a;
+}
+int  get_elS(short *A,int m,int n,int i,int j)
+{
+    /*Given mxn matrix A, get element at (i,j) 
+     * indexing starts from 0*/
+    if(i>m-1 || j>n-1)
+    {
+        puts("Error: error in get_element, index too large. Bailing out!");
+        exit(1);
+    }
+    return A[i*n+j];
 }
 int  get_elI(int *A,int m,int n,int i,int j)
 {
@@ -1123,19 +1151,19 @@ int read_vector_file(char *filename,double *buffer,int bufsize)
      char delims[]=" \t\r\n\f\v,";
      char *token;
      char *buff,*filebuff;
-     buff=malloc(10000);
-     filebuff=malloc(10000);
+     buff=malloc(100000);
+     filebuff=malloc(100000);
      if(fid==NULL)
     {
         perror("Error opening file in read_vector_file");
         exit(-1);
     }
     int count=0;
-    while(fgets(buff,10000,fid)!=NULL)
+    while(fgets(buff,100000,fid)!=NULL)
     {
         if(buff[0]=='#' || buff[0]==';')
             continue;
-        memcpy(filebuff,buff,10000);
+        memcpy(filebuff,buff,100000);
     token=strtok(filebuff,delims);
     while(token!=NULL && count<bufsize)
     {
@@ -1144,6 +1172,47 @@ int read_vector_file(char *filename,double *buffer,int bufsize)
         count++;
     }
     }
+    free(buff);
+    free(filebuff);
+    return count;
+}
+int read_vector_fileI_alloc(char *filename,int **buffer,int bufsize)
+{
+    /*
+     * Read <=bufsize vector of int values from a file. Lines starting with # or ;
+     *are ignored. Any delimeter( \t\r\n\f\v,) can be used to separate values.
+     * Buffer is allocated HERE
+     */ 
+    FILE *fid;
+    fid=fopen(filename,"r");
+     char delims[]=" \t\r\n\f\v,";
+     char *token;
+     char *buff,*filebuff;
+     buff=malloc(40000);
+     filebuff=malloc(40000);
+     int *buffer2=calloc(10000,sizeof(int));
+     if(fid==NULL)
+    {
+        perror("Error opening file in read_vector_file");
+        return -1;
+    }
+    int count=0;
+    while(fgets(buff,40000,fid)!=NULL)
+    {
+        if(buff[0]=='#' || buff[0]==';')
+            continue;
+        memcpy(filebuff,buff,40000);
+    token=strtok(filebuff,delims);
+    while(token!=NULL && count<bufsize)
+    {
+        buffer2[count]=atoi(token);
+        token=strtok(NULL,delims);
+        count++;
+    }
+    }
+    *buffer=calloc(count,sizeof(int));
+    memcpy(*buffer,buffer2,sizeof(int)*count);
+    free(buffer2);
     free(buff);
     free(filebuff);
     return count;
@@ -1165,13 +1234,17 @@ int parse_vector(char *string,double *vec,int maxlength)
 int parse_vectorI(char *string,int *vec,int maxlength)
 {
     char delims[]=" \t\r\n\f\v,";
+   
      char *token;
     token=strtok(string,delims);
     int count=0;
+   
     while(token!=NULL && count<maxlength)
     {
+       
         vec[count]=atoi(token);
         token=strtok(NULL,delims);
+       
         count++;
     }
     return count;
@@ -1187,19 +1260,19 @@ int read_vector_fileI(char *filename,int *buffer,int bufsize)
      char delims[]=" \t\r\n\f\v,";
      char *token;
      char *buff,*filebuff;
-     buff=malloc(10000);
-     filebuff=malloc(10000);
+     buff=malloc(100000);
+     filebuff=malloc(100000);
      if(fid==NULL)
     {
         perror("Error opening file in read_vector_file");
         exit(-1);
     }
     int count=0;
-    while(fgets(buff,10000,fid)!=NULL)
+    while(fgets(buff,100000,fid)!=NULL)
     {
         if(buff[0]=='#' || buff[0]==';')
             continue;
-        memcpy(filebuff,buff,10000);
+        memcpy(filebuff,buff,100000);
     token=strtok(filebuff,delims);
     while(token!=NULL && count<bufsize)
     {
@@ -1632,4 +1705,156 @@ int read_values_from_file(char *filename,double **fbuffer)
     free(buffer);
     free(filebuff);
     return count;
+}
+NOaARstruct* init_NOaARstruct(int nfac)
+{
+    /*
+     * Alloc struct for normals, areas and their derivatives
+     */
+    NOaARstruct *noaar=calloc(1,sizeof(NOaARstruct));
+    noaar->normal=calloc(3*nfac,sizeof(double));
+    noaar->area=calloc(3*nfac,sizeof(double));
+    noaar->dndx1=calloc(3*nfac,sizeof(double));
+    noaar->dndx2=calloc(3*nfac,sizeof(double));
+    noaar->dndx3=calloc(3*nfac,sizeof(double));
+    
+    noaar->dndy1=calloc(3*nfac,sizeof(double));
+    noaar->dndy2=calloc(3*nfac,sizeof(double));
+    noaar->dndy3=calloc(3*nfac,sizeof(double));
+    
+    noaar->dndz1=calloc(3*nfac,sizeof(double));
+    noaar->dndz2=calloc(3*nfac,sizeof(double));
+    noaar->dndz3=calloc(3*nfac,sizeof(double));
+    
+    noaar->dadx=calloc(3*nfac,sizeof(double));
+    noaar->dady=calloc(3*nfac,sizeof(double));
+    noaar->dadz=calloc(3*nfac,sizeof(double));
+    return noaar;
+}
+void free_NOaARstruct(NOaARstruct* noaar)
+{
+    free(noaar->normal);
+    free(noaar->area);
+    free(noaar->dndx1);
+    free(noaar->dndy1);
+    free(noaar->dndz1);
+    free(noaar->dndx2);
+    free(noaar->dndy2);
+    free(noaar->dndz2);
+    free(noaar->dndx3);
+    free(noaar->dndy3);
+    free(noaar->dndz3);
+    free(noaar->dadx);
+    free(noaar->dady);
+    free(noaar->dadz);
+    free(noaar);
+}
+
+void Find_Facets(int *tlist,double *vlist,int nfac,int nvert,int **Nfacets,int **Facetlist)
+{
+    /*
+     * For each vertex, find facets that contain the vertex
+     * OUTPUT:
+     * Nfacets: 1xnvert vector, number of facets corresponding to the vertex
+     * Facetlist: nvertx6 matrix, contains list of facets. CHECK IF 6 IS ENOUGH!!!!
+     */
+    int *Facets=calloc(nvert,sizeof(int));
+    int *Facetl=calloc(nvert*6,sizeof(int));
+    int *Temp=calloc(nvert*nfac,sizeof(int));
+    int v1,v2,v3;
+    for(int j=0;j<nfac;j++)
+    {
+        v1=tlist[3*j]-1;
+        v2=tlist[3*j+1]-1;
+        v3=tlist[3*j+2]-1;
+        Temp[v1*nfac+j]=1;
+        Temp[v2*nfac+j]=1;
+        Temp[v3*nfac+j]=1;
+    }
+    for(int j=0;j<nvert;j++)
+        for(int k=0;k<nfac;k++)
+            if(Temp[j*nfac+k]==1)
+            {
+                Facetl[6*j+Facets[j]]=k;
+                Facets[j]++;
+            }
+    free(Temp);
+    *Nfacets=Facets;
+    *Facetlist=Facetl;
+}
+void Calculate_Facet_Normals(int *tlist,double *vlist,int nfac,int nvert,int *Nfacets,int *Facetlist,double *Fnormals)
+{
+    /*
+     * Calculate facet normals given the model and neighborhood information
+     * Fnormals nvertx3 matrix, allocated before
+     */
+
+    double *normals=calloc(nfac*3,sizeof(double));
+    int count=0;
+    Calculate_Normals(tlist,vlist,nfac,nvert,normals);
+    double *temp,norm;
+    for(int j=0;j<nvert;j++)
+    {
+        for(int k=0;k<Nfacets[j];k++)
+        {
+            Fnormals[3*j]+=normals[3*Facetlist[6*j+k]];
+            Fnormals[3*j+1]+=normals[3*Facetlist[6*j+k]+1];
+            Fnormals[3*j+2]+=normals[3*Facetlist[6*j+k]+2];
+            
+        }
+        temp=Fnormals+3*j;
+        norm=NORM(temp);
+        Fnormals[3*j]=Fnormals[3*j]/norm;
+        Fnormals[3*j+1]=Fnormals[3*j+1]/norm;
+        Fnormals[3*j+2]=Fnormals[3*j+2]/norm;
+    }
+    free(normals);
+}
+void Generate_Normal_Deriv_Matrix(int *tlist,double *vlist,int nfac,int nvert,int *Nfacets,int *Facetlist,double *D)
+{
+    /*
+     * Generate a matrix where columns consist of vertex normals
+     * D is 3nvertxnvert matrix, preallocated
+     */
+    memset(D,0,sizeof(double)*3*nvert*nvert);
+    double *Fnormals=calloc(nvert*3,sizeof(double));
+    Calculate_Facet_Normals(tlist,vlist,nfac,nvert,Nfacets,Facetlist,Fnormals);
+    for(int j=0;j<nvert;j++)
+    {
+        D[j*nvert+j]=Fnormals[3*j];
+        D[nvert*(nvert+j)+j]=Fnormals[3*j+1];
+        D[nvert*(2*nvert+j)+j]=Fnormals[3*j+2];
+    }
+    free(Fnormals);
+}
+void Generate_Normal_Deriv_Matrix_Pad(int *tlist,double *vlist,int nfac,int nvert,int *Nfacets,int *Facetlist,double *D,int padding)
+{
+    /*
+     * Generate a matrix where columns consist of vertex normals
+     * D is (3nvert+padding)xnvert+padding matrix, preallocated
+     * D=[D 0
+     *    0 I]
+     */
+    memset(D,0,sizeof(double)*3*nvert*nvert);
+    double *Fnormals=calloc(nvert*3,sizeof(double));
+    Calculate_Facet_Normals(tlist,vlist,nfac,nvert,Nfacets,Facetlist,Fnormals);
+    for(int j=0;j<nvert;j++)
+    {
+        D[j*(nvert+3)+j]=Fnormals[3*j];
+        D[(nvert+3)*(nvert+j)+j]=Fnormals[3*j+1];
+        D[(nvert+3)*(2*nvert+j)+j]=Fnormals[3*j+2];
+    }
+    if(padding>0)
+        for(int j=0;j<padding;j++)
+            set_el(D,3*nvert+padding,nvert+padding,1.0,3*nvert+j,nvert+j);
+    free(Fnormals);
+}
+void Scale_Matrix_with_Vector(double *vec,double *M,int m,int n,double *N)
+{
+    /*
+     * N(i,:)=vec(i)*M(i,:)
+     */
+    for(int i=0;i<m;i++)
+        for(int j=0;j<n;j++)
+            N[i*n+j]=vec[j]*M[i*n+j];
 }

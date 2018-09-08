@@ -2,6 +2,7 @@
 #define UTILS
 #define DOT(a,b) (a[0]*b[0]+a[1]*b[1]+a[2]*b[2])
 #define NORM(a) sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2])
+#define DET(a) (a[0]*a[4]*a[8]+a[1]*a[5]*a[6]+a[2]*a[3]*a[7]-a[2]*a[4]*a[6]-a[1]*a[3]*a[8]-a[0]*a[5]*a[7])
 #define EP 1E-8
 #define PI  3.141592653589793
 #define LTS 299792.458
@@ -21,6 +22,14 @@
 #include<lapacke.h>
 #endif
 #include"wcstools-3.9.2/libwcs/fitsfile.h"
+void inertia(int *tlist,double* vlist,int nfac,int nvert,double *D,int m,int n,double *result,double *angle,double *dres);
+void fit_vertex_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD,CNTRstruct *CR);
+void Generate_Normal_Deriv_Matrix_Pad(int *tlist,double *vlist,int nfac,int nvert,int *Nfacets,int *Facetlist,double *D,int padding);
+void Scale_Matrix_with_Vector(double *vec,double *M,int m,int n,double *N);
+void Calculate_Facet_Normals(int *tlist,double *vlist,int nfac,int nvert,int *Nfacets,int *Facetlist,double *Fnormals);
+void Generate_Normal_Deriv_Matrix(int *tlist,double *vlist,int nfac,int nvert,int *Nfacets,int *Facetlist,double *D);
+void Find_Facets(int *tlist,double *vlist,int nfac,int nvert,int **Nfacets,int **Facetlist);
+int read_vector_fileI_alloc(char *filename,int **buffer,int bufsize);
 void read_obj_file(char *file, int **tlist,double **vlist,int *nfac,int *nvert);
 int read_state_fileI(char *filename,char *text,int *buffer,int n);
 int read_state_file(char *filename,char *text,double *buffer,int n);
@@ -76,8 +85,10 @@ void combine_matrices(double** A,double* B,int m,int n,int k);
 double * join_matrices(double *A,double *B,int m,int n,int k);
 void  set_el(double *A,int m,int n,double a,int i,int j);
 void  set_elI(int *A,int m,int n,int a,int i,int j);
+void  set_elS(short *A,int m,int n,int a,int i,int j);
 double  get_el(double *A,int m,int n,int i,int j);
 int  get_elI(int *A,int m,int n,int i,int j);
+int  get_elS(short *A,int m,int n,int i,int j);
 int ind2vec(int *A,int m,int **V,int i);
 double sum_matelR(double *A,int m,int n,int *V,int l,int k);
 double sum_matelC(double *A,int m,int n,int *V,int l,int k);
@@ -108,6 +119,7 @@ void area_reg(int *tlist,double *vlist,int nfac,int nvert,double *D,int dm,int d
 void dihedral_angle_reg(int *tlist,double *vlist,int nfac,int nvert,double *D,int dm,int dn,double *result,double *drsdv);
 void mult_with_cons(double *A,int m,int n,double C);
 void Sqrt3_Subdiv(int *tlist,double* vlist,int nfac,int nvert,int **tlistn,double **vlistn,int *nfacn,int *nvertn,double **D,int sdstep);
+void butterfly_subdiv(int *tlist,double *vlist,int nfac,int nvert,int **tlistn,double **vlistn,int *nfacn,int *nvertn,double **D,int sdstep);
 void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LCstruct *LC,double *D,int dm,int dn,double *LCout,double *dLCdv,double *Albedo,double *Alimit,double *dAlb,double *params,double *dparams,int deriv);
 void write_matrix_file(char * str,double *M,int m,int n);
 void write_matrix_fileI(char * str,int *M,int m,int n);

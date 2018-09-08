@@ -1,6 +1,5 @@
 #include"utils.h"
-#include<stdlib.h>
-#include<stdio.h>
+
 
 void octantoid_reg(double *a,int LMAX,double *oreg,double *doreg)
 {
@@ -33,21 +32,3 @@ void octantoid_reg(double *a,int LMAX,double *oreg,double *doreg)
     *oreg=reg;
     free(vec);
 }
-/*
-void main()
-{
-   int LMAX=2;
-   int al=pow(LMAX+1,2);
-   double *a;
-   a=calloc(3*al,sizeof(double));
-   for(int j=0;j<27;j++)
-       a[j]=j;
-   
-   double oreg;
-   
-   double *doreg=calloc(3*al,sizeof(double));
-   octantoid_reg(a,LMAX,&oreg,doreg);
-   printf("oreg: %f\n",oreg);
-   write_matrix_file("/tmp/doreg.txt",doreg,1,3*al);
-}
-*/

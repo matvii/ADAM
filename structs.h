@@ -100,4 +100,25 @@ typedef struct CNTR
     double *up; /*camera up direction ncontx3 array, normalized to unit*/
     double *distance; /*distance in km*/
 } CNTRstruct;
+typedef struct NOaAR
+{
+    /*
+     * Struct to hold normals and areas of facets and their derivatives wrt vertices
+     */
+    double *normal;
+    double *dndx1; //3*nfac vector
+    double *dndx2;
+    double *dndx3;
+    double *dndy1;
+    double *dndy2;
+    double *dndy3;
+    double *dndz1;
+    double *dndz2;
+    double *dndz3;
+    
+    double *area;
+    double *dadx; //3*nfac vector
+    double *dady;
+    double *dadz;
+} NOaARstruct;
 #endif

@@ -169,7 +169,7 @@ void map_sqrt_subdiv_limit(int *tlist,double *vlist,int nfac,int nvert,double **
      * NOTE: vlist is overwritten
      */
     double *vlistn=calloc(3*nvert,sizeof(double));
-    int *tlistn=calloc(3*nfac,sizeof(int));
+    //int *tlistn=calloc(3*nfac,sizeof(int));
     double *D=calloc(nvert*nvert,sizeof(double));
     int *vMo=calloc(nvert*nvert,sizeof(int));
    

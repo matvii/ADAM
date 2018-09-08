@@ -1,5 +1,13 @@
 #ifndef GLOBALS
 #define GLOBALS
+extern int INI_RESTORE_ALBEDO;
+extern double INI_SET_RD_ZERO;
+extern int INI_IGNORE_AO_ALBEDO;
+extern int INI_ALBEDO_FIT_ONLY;
+extern int INI_SUBDIV_TYPE_BUTTERFLY;
+extern int INI_VERTEX_NORMAL;
+extern int INI_FIX_VERTEX_NBR;
+extern int *INI_FIX_VERTEX_LIST;
 extern double INI_COM_WEIGHT;
 extern int     INI_HAVE_LC;
 extern int     INI_HAVE_AO;
@@ -60,6 +68,7 @@ extern double *INI_PARAMS;
 extern double *INI_AO_WEIGHT;
 extern double *INI_OC_WEIGHT;
 extern double *INI_RD_WEIGHT;
+extern double INI_INER_WEIGHT;
 extern double *INI_PHASE_PARAMS;
 extern double *INI_HAPKE;
 extern double INI_ZMAX;
@@ -89,6 +98,7 @@ extern int *INI_PHASE_MASK;
 extern char *INI_WRITE_STATE_FILE;
 extern char *INI_ALBEDO_OUT_FILE;
 extern char *OUT_OBJSHAPE_FILE;
+extern char *OUT_LOG_FILE;
 extern double INI_NDCHORD_WEIGHT;
 extern int INI_LOGEXP;
 extern int INI_HAVE_CNTR;

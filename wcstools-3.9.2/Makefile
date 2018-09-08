@@ -1,7 +1,7 @@
-CFLAGS= -g -D_FILE_OFFSET_BITS=64
+CFLAGS= -g -D_FILE_OFFSET_BITS=64 -fPIC
 CC= cc
 LIBWCS = libwcs/libwcs.a
-LIBS = $(LIBWCS) -lm
+LIBS = $(LIBWCS) -lm -fPIC
 #LIBS = $(LIBWCS) -lm -lnsl -lsocket
 BIN = bin
 .PRECIOUS: ${LIBWCS} ${LIBNED}

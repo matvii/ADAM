@@ -4,6 +4,7 @@
 #include<math.h>
 #include"utils.h"
 #include"matrix_ops.h"
+#include"globals.h"
 void readfits_rd(char* filename,double **buffer,int x0,int y0,int nx,int ny,double *date,int *xsize,int *ysize,double *cdelt1,double *cdelt2)
 {
     /*Routine to read range-Doppler radar fits and information specific to it*/
@@ -59,13 +60,14 @@ void readfits_rd(char* filename,double **buffer,int x0,int y0,int nx,int ny,doub
     buf=calloc(imsize,sizeof(double));
       if(bitpix!=-64)
       for(int j=0;j<imsize;j++)
-         buf[j]=fmax(fimage[j],0);
+         //buf[j]=fmax(fimage[j],0);
+          buf[j]=fmax(fimage[j],INI_SET_RD_ZERO);
     else
         for(int j=0;j<imsize;j++)
-            buf[j]=fmax(dimage[j],0);
+            buf[j]=fmax(dimage[j],INI_SET_RD_ZERO);
       //NOTE: HERE WE flip and transpose the image
-      flip_dim(buf,*ysize,*xsize,2);
-      matrix_transpose(buf,*ysize,*xsize);
+     // flip_dim(buf,*ysize,*xsize,2);
+    //  matrix_transpose(buf,*ysize,*xsize);
      
     free(head);
     free(image);

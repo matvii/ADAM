@@ -758,8 +758,8 @@ int	nlog;		/* Note progress mod this rows */
 	    row++;
 	    if (++ilog == nlog) {
 		ilog = 0;
-		fprintf (stderr, "Row %5d extracted   ", row);
-                (void) putc (13,stderr);
+		//fprintf (stderr, "Row %5d extracted   ", row);
+                //(void) putc (13,stderr);
 		}
 	    }
 	}

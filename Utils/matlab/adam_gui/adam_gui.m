@@ -39,6 +39,10 @@ min_tim=0;
 iniFileName='';
 iniPathName='';
 Albedo='';
+Beta=0;
+Lambda=0;
+Period=0;
+
 %cd /home/matvii/Storage/Data/final2/7_Iris_4268/;
 LoadIni;
 %keyboard
@@ -74,6 +78,9 @@ htext = uicontrol('Style','text','String',AOtext,...
     'Position',[20,270,200,10],'FontSize',7);
 hofxtext=uicontrol('Style','edit','String','0','Position',[360,90,20,15],'Visible','Off','Callback',{@ofxtext_Callback},'Units','normalized');
 hofytext=uicontrol('Style','edit','String','0','Position',[380,90,20,15],'Visible','Off','Callback',{@ofytext_Callback},'Units','normalized');
+betabox=uicontrol('Style','edit','String',int2str(Beta),'Position',[295,90,20,15],'Visible','On','Callback',{@setbeta_Callback},'Units','normalized');
+lambdabox=uicontrol('Style','edit','String',int2str(Lambda),'Position',[315,90,20,15],'Visible','On','Callback',{@setlambda_Callback},'Units','normalized');
+periodbox=uicontrol('Style','edit','String',num2str(Period,7),'Position',[335,90,20,15],'Visible','On','Callback',{@setperiod_Callback},'Units','normalized');
 hpopup = uicontrol('Style','popupmenu',...
     'String',popmenu,...
     'Position',[300,50,40,25],...
@@ -102,7 +109,7 @@ hstf= uicontrol(hselecttoggle,'Style','radiobutton',...
 % Initialize the GUI.
 % Change units to normalized so components resize
 % automatically.
-set([f,ha,hload,hloadmesh,hOCCmenu,hloadOCC,hsave,hcontour,htext,hpopup,hcheckrot,hcheckfit,hsundir,hselecttoggle],...
+set([f,ha,hload,hloadmesh,hOCCmenu,hloadOCC,hsave,hcontour,htext,hpopup,hcheckrot,hcheckfit,hsundir,hselecttoggle,betabox,lambdabox,periodbox],...
     'Units','normalized');
 cview=[1,1,1];
 %Create a plot in the axes.
@@ -157,8 +164,9 @@ set(f,'WindowButtonDownFcn',@VertexSelect_orig);
     end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function loadbutton_Callback(source,eventdata)
-        
+        current_view=1;
         LoadIni;
+        set(hpopup,'String',popmenu,'Visible','off');
         popmenu=cell(1,nAO);
         for j=1:nAO
             popmenu{j}=strcat('AO',int2str(j));
@@ -174,7 +182,8 @@ set(f,'WindowButtonDownFcn',@VertexSelect_orig);
         [FileName,PathName] = uigetfile('*.*');
         filename=strcat(PathName,FileName);
         [tlist,vlist]=read_shape(filename,1);
-        [vlist2,rE,rE0,invis,shade]=process_visible(tlist,vlist,FT,angles,1);
+        [vlist2,rE,rE0,invis,shade]=process_visible(tlist,vlist,FT,angles,Albedo,1);
+        hold off
         fig3d=trisurf(tlist,vlist(:,1),vlist(:,2),vlist(:,3),shade);axis equal;
         hold on
         TR=triangulation(tlist,vlist(:,1),vlist(:,2),vlist(:,3));
@@ -230,6 +239,21 @@ set(f,'WindowButtonDownFcn',@VertexSelect_orig);
         ofy=get(source,'string');
         OCCOffset(2*OCCindex)=str2double(ofy);
     end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    function setbeta_Callback(source,eventdata)
+        Beta=str2double(get(source,'string'));
+        angles(1)=deg2rad(90-str2double(get(source,'string')));
+    end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+    function setlambda_Callback(source,eventdata)
+        Lambda=str2double(get(source,'string'));
+        angles(2)=deg2rad((str2double(get(source,'string'))));
+    end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    function setperiod_Callback(source,eventdata)
+        Period=str2double(get(source,'string'));
+        angles(3)=24*2*pi/str2double(get(source,'string'));
+    end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function savebutton_Callback(source,eventdata)
         % Display mesh plot of the currently selected data.
@@ -250,7 +274,8 @@ set(f,'WindowButtonDownFcn',@VertexSelect_orig);
         figure(DataFig); imagesc(im{current_view});axis equal;axis xy;
         set(DataFig,'Name',Filename{current_view},'NumberTitle','off');
         ims=size(im{current_view},1);
-        I2=project_mesh_2d(tlist,vlist,angles,FT.TIME{current_view},FT.E{current_view},FT.E0{current_view},FT.distance{current_view},FT.up{current_view},FT.scale{current_view}/2,2*ims,[],Albedo);
+        [vlist2,rE,rE0,invis,shade]=process_visible(tlist,vlist,FT,angles,Albedo,current_view);
+        I2=project_mesh_2d(tlist,vlist,angles,FT.TIME{current_view},FT.E{current_view},FT.E0{current_view},FT.distance{current_view},FT.up{current_view},FT.scale{current_view}/2,2*ims,[],Albedo,shade);
         figure(ProjFig); imagesc(I2);axis xy;axis equal;
     end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%rotbutton_callback%%%%%%%%%%%%%%%%%%%
@@ -392,6 +417,7 @@ set(f,'WindowButtonDownFcn',@VertexSelect_orig);
 %%%%%%%%%%%%%%%%%%%LoadIni%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function LoadIni()
         [iniFileName,iniPathName] = uigetfile('*.ini','Select ini');
+        %keyboard
         %FileName='10_1_octdec.ini';
         cdir=cd;
         cd(iniPathName);
@@ -411,12 +437,15 @@ set(f,'WindowButtonDownFcn',@VertexSelect_orig);
         VN=vertexNormal(TR);
         nAO=size(FT.E,2);
         [vlist2,rE,rE0,invis,shade]=process_visible(tlist,vlist,FT,angles,Albedo,1);
+        current_view=1;
 for j=1:nAO
     popmenu{j}=strcat('AO',int2str(j));
 end
         
-        
-        
+    Beta=90-rad2deg(angles(1));    
+    Lambda=rad2deg(angles(2));
+    Period=24*2*pi/angles(3);
+   
     end
 %%%%%%%%%%%%%%%%%%%Vertex select function%%%%%%%%%%%%%%%%%%%%%
     function VertexSelect(src, eventData)

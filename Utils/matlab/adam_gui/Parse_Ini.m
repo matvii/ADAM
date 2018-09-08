@@ -1,7 +1,7 @@
 function [tlist,vlist,E,E0,up,Date,angles,PixScale,km2arcsec,im,FT,Filename,RotAngle,MinTim,Albedo]=Parse_Ini(inifile,reduce)
 %Parse ini file
 fd=fopen(inifile);
-
+Hapke=[];
 while ~feof(fd)
     line=fgetl(fd);
     line=strtrim(line);
@@ -10,9 +10,21 @@ while ~feof(fd)
     end
 end
 MinTim=sscanf(line,'MinTim=%f');
-
+fclose(fd);
+fd=fopen(inifile);
 while ~feof(fd)
     line=fgetl(fd);
+    line=strtrim(line);
+    if strfind(line,'HapkeParams=')==1
+        break;
+    end
+end
+Hapke=sscanf(line,'HapkeParams=%f,%f,%f,%f,%f');
+fclose(fd);
+fd=fopen(inifile);
+while ~feof(fd)
+    line=fgetl(fd);
+    line=strtrim(line);
        if strfind(line,'UseAO=')==1
         break
     end
@@ -43,6 +55,7 @@ while ~feof(fd)
     end
     end
 for j=1:nAO
+    
     tao=strcat('[AO',int2str(j),']');
     taon=strcat('[AO',int2str(j+1),']');
    
@@ -115,15 +128,21 @@ while ~feof(fd)
         AlbedoFile=sscanf(line,'AlbedoFile=%s');
     end
 end
-
+fclose(fd);
 
 fd2=fopen(Anglefile);
+%keyboard
 Angles=fscanf(fd2,'%f %f %f');
 fclose(fd2);
 angles=[deg2rad(90-Angles(1)) deg2rad(Angles(2)) 2*pi/Angles(3)*24];
-fclose(fd);
+%fclose(fd);
+%keyboard
 if ~isempty(AlbedoFile)
+    try
     Albedo=dlmread(AlbedoFile);
+    catch
+        warning('Albedo file not found');
+    end
 end
 %Read ephm information
 cao=1.731446326742403e+02;
@@ -165,7 +184,7 @@ for j=1:nAO
     up(j,:)=calc_cam_angle(E(j,:),up(j,:),RotAngle(j)*pi/180);
     end
     im{j}=fitsread(Filename{j});
-   
+   %keyboard
     if AORectx(j)>0 && AORecty(j)>0
         im{j}=im{j}(AORecty(j):AOSizey(j)-1+AORecty(j),AORectx(j):AOSizex(j)-1+AORectx(j));
     end
@@ -179,5 +198,6 @@ for j=1:nAO
     FT.distance{j}=dist(j);
     FT.up{j}=up(j,:);
 end
+FT.HapkeParams=Hapke';
 [tlist,vlist]=read_shape(ShapeFile,1);
 end

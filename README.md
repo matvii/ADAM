@@ -30,7 +30,7 @@ Adam.pdf contains some useful tips. For theoretical background, read [Shape reco
 This software is licensed under [CC Attribution 4.0 international License](https://creativecommons.org/licenses/by/4.0/legalcode).
 
 If you use ADAM in your research, please cite
-Viikinkoski, M; Kaasalainen, M.; Durech, J.: *ADAM: a general method for for using various data types in asteroid reconstruction*, A&A Vol 576, 2015.
+Viikinkoski, M; Kaasalainen, M.; Durech, J.: *ADAM: a general method  for using various data types in asteroid reconstruction*, A&A Vol 576, 2015.
 
 ## Contact
 Bug reports, data, feature suggestions and comments are welcome.
@@ -76,6 +76,11 @@ Matti Viikinkoski (matti.viikinkoski@gmail.com)
 - Support for hard thresholding AO data (Set SetZero=20 in [AO?] to zero all the pixels that are smaller than 0.2*max value)
 - A matlab gui for viewing ADAM reconstructed shapes (See install and usage.txt in Utils/matlab/adam_gui)
 - Some minor bugfixes
+
+#### 8.9.2018
+- Support for fitting AO albedo [FitAOAlbedo=1 in [Optimization], FitAlbedo=1 in [LC], remember to set AlbedoFile= for output]
+- Inertia regularization [INERWeight= in [Optimization]]
+- Butterfly subdivision
 
 #### TODO
 - Integration of thermal modelling stuff into the main program

@@ -251,6 +251,7 @@ int solve_matrix_eq_QR(double *A,int m,int k,double *B)
                 fprintf(stderr,"Matrix does not have full rank; the least squares solution could not be computed.\n" );
                 return info;
         }
+        return 0;
 } 
 void matrix_concat_special2(double *A,int m,int k,double *B,double lambda,double **C)
 {

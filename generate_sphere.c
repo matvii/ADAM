@@ -10,7 +10,7 @@ void generate_sphere(int nrows,int *tlist,double *vlist)
      * vlist is (4*nrows^2+2)x3 matrix
      * tlist is 8*nrows^2 x 3 matrix
      */
-    int *ifp;
+    
     double x,y,z;
     
     double *t,*f;

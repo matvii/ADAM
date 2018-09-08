@@ -74,7 +74,7 @@ void find_chord(int *tlist,double *vlist2,int nfac,int nvert,double *offset,doub
     int i1,i2,i3;
     double u1,u2,w1,w2,n3;
     double *v1,*v2,*v3;
-    double interp[2],ip[2];
+    double ip[2];
     double dpx[4],dpy[4];
     double dist,cldist=1E9,fadist=0;
     double *vlist=calloc(3*nvert,sizeof(double));

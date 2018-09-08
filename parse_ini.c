@@ -8,6 +8,8 @@
 #include"globals.h"
 //Build command gcc test_adam_ini.c -o test_adam_ini -Iiniparser/src -Liniparser -liniparser
 //Here are global variables
+int     INI_SUBDIV_TYPE_BUTTERFLY=0;
+int     INI_IGNORE_AO_ALBEDO=0;
 int     INI_HAVE_LC=0;
 int     INI_HAVE_AO=0;
 int     INI_HAVE_OC=0;
@@ -16,7 +18,10 @@ int     INI_HAVE_RD=0;
 int     INI_HAVE_CNTR=0;
 int     INI_CNTR_IS_SPARSE=0;
 int     INI_CNTR_RAD=0;
+int     INI_ALBEDO_FIT_ONLY=0;
 int INI_FIT_AO_ALBEDO=0;
+int INI_RESTORE_ALBEDO=1;
+double INI_SET_RD_ZERO=-10;
 double INI_ANGLE_B=NAN;
 double INI_ANGLE_L=NAN;
 double INI_ANGLE_P=NAN;
@@ -55,6 +60,7 @@ double INI_ZMAX_WEIGHT=0;
 double INI_ZMAX=10;
 double INI_CHRDW=0;
 double INI_CNTR_WEIGHT=0;
+double INI_INER_WEIGHT=0;
 double INI_LAMBDAINC=10;
 double INI_LAMBDADEC=10;
 double INI_LAMBDAMAX=1e6;
@@ -95,7 +101,12 @@ char *INI_WRITE_STATE_FILE=NULL;
 char *INI_ALBEDO_OUT_FILE=NULL;
 char *OUT_OBJSHAPE_FILE=NULL;
 char *INI_RESTORE_STATE=NULL;
+char *OUT_LOG_FILE=NULL;
 double *INI_AO_REDUCE_ZERO=NULL;
+int MAX_VERTICES=10000;
+int INI_FIX_VERTEX_NBR=0;
+int *INI_FIX_VERTEX_LIST;
+int INI_VERTEX_NORMAL=0;
 int parse_ini(char *filename)
 {
     char *ephmfile;
@@ -142,9 +153,16 @@ int parse_ini(char *filename)
     s=iniparser_getstring(ini,"Shape:SDLevel",NULL);
     if(s!=NULL)
         INI_SD_LEVEL=atoi(s);
+    s=iniparser_getstring(ini,"Shape:ButterflySubdiv",NULL);
+    if(s!=NULL)
+        INI_SUBDIV_TYPE_BUTTERFLY=atoi(s);
+    
     s=iniparser_getstring(ini,"Shape:LMAX",NULL);
     if(s!=NULL)
         INI_LMAX=atoi(s);
+    s=iniparser_getstring(ini,"Shape:AlbedoFitOnly",0);
+    if(s!=NULL)
+        INI_ALBEDO_FIT_ONLY=atoi(s);
     s=iniparser_getstring(ini,"Shape:MinTim",NULL);
     if(s!=NULL)
         INI_MIN_TIM=atof(s);
@@ -183,8 +201,24 @@ int parse_ini(char *filename)
     s=iniparser_getstring(ini,"Shape:FixA1",NULL);
     if(s!=NULL)
         INI_FIX_A1=atoi(s);
+    s=iniparser_getstring(ini,"Shape:FixShapeVertexFile",NULL);
+    if(s!=NULL)
+    {
+        INI_FIX_VERTEX_NBR=read_vector_fileI_alloc(s,&INI_FIX_VERTEX_LIST,MAX_VERTICES);
+        if(INI_FIX_VERTEX_NBR<1)
+        {
+            perror("Failed to process file in Shape:FixShapeVertexFile");
+            INI_FIX_VERTEX_NBR=0;
+        }
+        INI_MASK_SET=1;
+       
+    }
+    s=iniparser_getstring(ini,"Shape:RestoreAlbedo","1");
+    INI_RESTORE_ALBEDO=atoi(s);
     if(INI_FIX_SHAPE==1 || INI_FIX_ANGLES==1 ||INI_FIX_A1==1 || INI_STAR_SHAPED==1)
         INI_MASK_SET=1;
+    s=iniparser_getstring(ini,"Shape:VertexNormalFit","0");
+    INI_VERTEX_NORMAL=atoi(s);
     //Parse optimization
     s=iniparser_getstring(ini,"Optimization:NumberofRounds","50");
     NUM_OF_ROUNDS=atoi(s);
@@ -219,7 +253,7 @@ int parse_ini(char *filename)
     s=iniparser_getstring(ini,"Optimization:MinDec","0.1");
     INI_MINDEC=atof(s);
     s=iniparser_getstring(ini,"Optimization:RDexp","2");
-    INI_RDEXP=log(atoi(s));
+    INI_RDEXP=log(atof(s));
     s=iniparser_getstring(ini,"Optimization:ChordWeight","1");
     INI_CHRDW=atof(s);
     s=iniparser_getstring(ini,"Optimization:AlbRegWeight","1");
@@ -236,13 +270,22 @@ int parse_ini(char *filename)
     s=iniparser_getstring(ini,"Optimization:COMWeight","0");
     if(s!=NULL)
         INI_COM_WEIGHT=atof(s);
+    s=iniparser_getstring(ini,"Optimization:INERWeight","0");
+    if(s!=NULL)
+        INI_INER_WEIGHT=atof(s);
+    s=iniparser_getstring(ini,"Optimization:IgnoreAOAlbedo","0");
+    if(s!=NULL)
+        INI_IGNORE_AO_ALBEDO=atoi(s);
     s=iniparser_getstring(ini,"Optimization:FitAOAlbedo","0");
     if(s!=NULL)
         INI_FIT_AO_ALBEDO=atoi(s);
+    if(INI_FIT_AO_ALBEDO)
+        INI_IGNORE_AO_ALBEDO=0;
     s=iniparser_getstring(ini,"Optimization:AOLowFreq",NULL);
     if(s!=NULL)
         GlobalAOLowFreq=atoi(s);
-    
+    s=iniparser_getstring(ini,"Optimization:SetRDZero","-10");
+    INI_SET_RD_ZERO=atof(s);
     s=iniparser_getstring(ini,"Data:UseLC","1");
     INI_HAVE_LC=atoi(s);
     s=iniparser_getstring(ini,"Data:UseAO","0");
@@ -323,6 +366,7 @@ int parse_ini(char *filename)
     }
     s=iniparser_getstring(ini,"LC:FitAlbedo","0");
     INI_FIT_ALBEDO=atoi(s);
+   
     s=iniparser_getstring(ini,"LC:AlbedoMax","1");
     INI_ALBEDO_MAX=atof(s);
     s=iniparser_getstring(ini,"LC:AlbedoMin","0");
@@ -364,7 +408,12 @@ int parse_ini(char *filename)
         OUT_LC_FILE=calloc(strlen(s)+1,sizeof(char));
         strcpy(OUT_LC_FILE,s);
     }
-        
+     s=iniparser_getstring(ini,"Output:LogFile",NULL);
+     if(s!=NULL)
+     {
+         OUT_LOG_FILE=calloc(strlen(s)+1,sizeof(char));
+         strcpy(OUT_LOG_FILE,s);
+     }
      s=iniparser_getstring(ini,"Output:ShapeFile",NULL);
     if(s==NULL)
     {

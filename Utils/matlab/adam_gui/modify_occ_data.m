@@ -1,5 +1,5 @@
 function OC2=modify_occ_data(OC)
-%Add LT correction and substract mean from coordinates
+%Add LT correction and substract mean from coordinates and substract t
 OC2=OC;
 c=299792.458;
 for j=1:size(OC.E,2)

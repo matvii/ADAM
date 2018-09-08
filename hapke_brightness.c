@@ -50,7 +50,57 @@ void dhapke_bright(double *E,double *E0,double mu,double mu0,double *p,double th
   *rdssdmu0=dssdmu0;
   
 }
-
+void dhapke_bright_fac(double *E,double *E0,double mu,double mu0,double *p,double th,double *rss,double *rdssdmu,double *rdssdmu0)
+{
+/* 
+ * Calculate Hapke brightness function and derivatives wrt mu,mu0.
+ * Modified the original by removing mu from sls (Since we calculate facet projected area in the main program)
+ */
+  
+  double tth,cth,cal,alpha;
+  tth=tan(PI/180.0*th);
+  cth=1.0/sqrt(1+PI*tth);
+  cal=DOT(E,E0);
+  alpha=acos(cal);
+  
+  double sh,mueiefi,mu0eiefi,dshdmu,dshdmu0,dmueiefidmu,dmueiefidmu0,dmu0eiefidmu,dmu0eiefidmu0;
+  dshadow(mu,mu0,tth,cal,&sh,&mueiefi,&mu0eiefi,&dshdmu,&dshdmu0,&dmueiefidmu,&dmueiefidmu0,&dmu0eiefidmu,&dmu0eiefidmu0);
+ 
+ 
+  
+  double mu0new,dmu0newdmu,dmu0newdmu0,munew,dmunewdmu,dmunewdmu0,dnom,dnomdmu,dnomdmu0,sls,dslsdmu,dslsdmu0;
+  double fh,dfhdmu,dfhdmu0,dfhdmu_temp,ss,dssdmu,dssdmu0;
+  mu0new=cth*mu0eiefi;
+  dmu0newdmu=cth*dmu0eiefidmu;
+  dmu0newdmu0=cth*dmu0eiefidmu0;
+  munew=cth*mueiefi;
+  dmunewdmu=cth*dmueiefidmu;
+  dmunewdmu0=cth*dmueiefidmu0;
+  dnom=munew+mu0new;
+  dnomdmu=dmunewdmu+dmu0newdmu;
+  dnomdmu0=dmunewdmu0+dmu0newdmu0;
+  //sls=mu*mu0new/dnom;
+  sls=mu0new/dnom;
+  
+  //dslsdmu=((mu0new+mu*dmu0newdmu)*dnom-mu*mu0new*dnomdmu)/pow(dnom,2);
+  //dslsdmu0=(mu*dmu0newdmu0*dnom-mu*mu0new*dnomdmu0)/pow(dnom,2);
+  dslsdmu=(dmu0newdmu*dnom-mu0new*dnomdmu)/pow(dnom,2);
+  dslsdmu0=(dmu0newdmu0*dnom-mu0new*dnomdmu0)/pow(dnom,2);
+  dhapke(p,munew,mu0new,alpha,&fh,&dfhdmu,&dfhdmu0);
+ 
+  
+  dfhdmu_temp=dfhdmu;
+  dfhdmu=dfhdmu*dmunewdmu+dfhdmu0*dmu0newdmu;
+  dfhdmu0=dfhdmu0*dmu0newdmu0+dfhdmu_temp*dmunewdmu0;
+  
+  ss=fh*sls*sh;
+  dssdmu=dfhdmu*sls*sh+fh*dslsdmu*sh+fh*sls*dshdmu;
+  dssdmu0=dfhdmu0*sls*sh+fh*dslsdmu0*sh+fh*sls*dshdmu0;
+  *rss=ss;
+  *rdssdmu=dssdmu;
+  *rdssdmu0=dssdmu0;
+  
+}
 void dshadow(double mu,double mu0,double tth,double cal,double *rsh,double *rmueiefi,double *rmu0eiefi,double *rdshdmu,double *rdshdmu0,double *rdmueiefidmu,double *rdmueiefidmu0,double *rdmu0eiefidmu,double *rdmu0eiefidmu0)
 {
 //[sh,mueiefi,mu0eiefi,dshdmu,dshdmu0,dmueiefidmu,dmueiefidmu0,dmu0eiefidmu,dmu0eiefidmu0]
