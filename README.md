@@ -79,7 +79,7 @@ Matti Viikinkoski (matti.viikinkoski@gmail.com)
 
 #### 8.9.2018
 - Support for fitting AO albedo [FitAOAlbedo=1 in [Optimization], FitAlbedo=1 in [LC], remember to set AlbedoFile= for output]
-- Inertia regularization [INERWeight= in [Optimization]]
+- Inertia regularization [set INERWeight=? in [Optimization]]
 - Butterfly subdivision
 
 #### TODO
