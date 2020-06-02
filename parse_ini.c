@@ -339,6 +339,8 @@ int parse_ini(char *filename)
     INI_LC_ARE_RELATIVE=atoi(s);
     s=iniparser_getstring(ini,"LC:LCFile",NULL);
     //Prepare LC data
+    if(INI_HAVE_LC)
+    {
     INI_LC=read_lcurve(s,INI_MIN_TIM);
     //Read LC Weight file
     s=iniparser_getstring(ini,"LC:LCWeightFile",NULL);
@@ -347,6 +349,7 @@ int parse_ini(char *filename)
         INI_LC_WEIGHTS[jk]=1.0;
     if(s!=NULL)
         read_weight_file(s,INI_LC_WEIGHTS,INI_LC->nlc);
+    }
     s=iniparser_getstring(ini,"LC:PhaseParams",NULL);
     if(s!=NULL)
     {
@@ -389,7 +392,7 @@ int parse_ini(char *filename)
          INI_MASK_SET=1;
     }
     }
-    if(INI_LC->ncalib>0 && INI_PHASE_PARAMS==NULL && INI_HAPKE==NULL)
+    if(INI_HAVE_LC==1 && INI_LC->ncalib>0 && INI_PHASE_PARAMS==NULL && INI_HAPKE==NULL)
     {
         fprintf(stderr,"WARNING: There are calibrated lightcurves, but phase params or Hapke are not set. Either set AllLCRelative=1 or PhaseParams=... or HapkeParams\n");
         

@@ -303,6 +303,8 @@ double sum_vector(double *vec1,int n)
   
 struct LC  *read_lcurve(char* filename,double min_tim)
 {
+    if(filename==NULL)
+        return(-1);
   struct LC *tlc;
   char *buffer=calloc(2048,sizeof(char));
   tlc=malloc(sizeof(struct LC));
@@ -311,7 +313,7 @@ struct LC  *read_lcurve(char* filename,double min_tim)
   if(fid==NULL)
   {
       perror("Cannot open lcurve file!");
-      exit(-1);
+      return(-1);
   }
   int cal,nlc,nobs;
   int ncalib=0;
@@ -325,7 +327,7 @@ struct LC  *read_lcurve(char* filename,double min_tim)
   if(sscanf(buffer,"%d",&nlc)==0) /*Total number of lightcurves*/
   {
     fprintf(stderr,"Error reading lcurve file (total number of lightcurves)!");
-      exit(-1);
+      return(-1);
   }
   
   (*tlc).nlc=nlc;
