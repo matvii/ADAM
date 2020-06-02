@@ -40,7 +40,7 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
     
     zero_array(dLCdv,ntpoints*(3*nvertf+3));
      if(dAlb!=NULL)
-         zero_array(dAlb,ntpoints*nfac);
+         zero_array(dAlb,ntpoints*nvert);
      if(dparams!=NULL)
          zero_array(dparams,ntpoints*3);
        omp_set_num_threads(NUM_THREADS);
@@ -73,7 +73,7 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
         dbrighto=calloc(pinlc,sizeof(double));
         dbrightp=calloc(pinlc*3,sizeof(double));
         if(Albedo!=NULL)
-            dA=calloc(pinlc*nfac,sizeof(double)); //If no albedo, then no albedo derivatives
+            dA=calloc(pinlc*nvert,sizeof(double)); //If no albedo, then no albedo derivatives
         E=LC->E[j];
         E0=LC->E0[j];
         TIME=LC->TIME[j];
@@ -84,7 +84,8 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
             // printf("pinlc: %d nvert :%d nvertf: %d\n",pinlc,nvert,nvertf);
             dbrightxf=calloc(pinlc*nvert,sizeof(double));
             dbrightyf=calloc(pinlc*nvert,sizeof(double));  
-            dbrightzf=calloc(pinlc*nvert,sizeof(double));  
+            dbrightzf=calloc(pinlc*nvert,sizeof(double));
+            
             calculate_lcurve(tlist,vlist,nfac,nvert,angles,E,E0,pinlc,TIME,bright,dbrightxf,dbrightyf,dbrightzf,dbrightb,dbrightl,dbrighto,dbrightp,Albedo,Alimit,dA,LC->rel[j],params);
             
             matrix_prod(dbrightxf,pinlc,nvert,D,nvertf,dbrightx);
@@ -138,8 +139,8 @@ void calculate_lcs(int *tlist,double *vlist,int nfac,int nvert,double *angles,LC
             
             if(Albedo!=NULL)
             {
-                mult_with_cons(dA,pinlc,nfac,lcw);
-                set_submatrix(dAlb,ntpoints,nfac,dA,pinlc,nfac,cind,0);
+                mult_with_cons(dA,pinlc,nvert,lcw);
+                set_submatrix(dAlb,ntpoints,nvert,dA,pinlc,nvert,cind,0);
                 free(dA);
             }
             if(params!=NULL && dparams!=NULL)

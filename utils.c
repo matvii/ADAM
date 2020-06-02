@@ -5,6 +5,29 @@
 #include"structs.h"
 #include"utils.h"
 #include"globals.h"
+double Albedo_Term(int *tlist,double *vlist,int nfac,int nvert, double *Alimit,double *Alb,int index,double* dAlbv)
+/*Calculate albedo values for the each facet
+ * Here albedo value is mean of vertex values
+ */
+{
+    int v1,v2,v3;
+    int talb;
+    double la,ha;
+    double Albedo;
+    la=Alimit[0];
+    ha=Alimit[1];
+    v1=tlist[3*index]-1;
+    v2=tlist[3*index+1]-1;
+    v3=tlist[3*index+2]-1;
+    Albedo=(la+ha)/2+(ha-la)/2*(tanh(Alb[v1])+tanh(Alb[v2])+tanh(Alb[v3]))/3;
+    if(dAlbv!=NULL)
+    {
+        dAlbv[0]=(ha-la)/2*(1-pow(tanh(Alb[v1]),2))/3;
+        dAlbv[1]=(ha-la)/2*(1-pow(tanh(Alb[v2]),2))/3;
+        dAlbv[2]=(ha-la)/2*(1-pow(tanh(Alb[v3]),2))/3;
+    }
+    return Albedo;
+}
 void AdjFacet(int *tlist,double *vlist,int nfac,int nvert,int *A)
 {
     /*A is nvertxnvert matrix, facets with common edge (i1,i2) are A(i1,i2), A(i2,i1)*/
@@ -19,6 +42,19 @@ void AdjFacet(int *tlist,double *vlist,int nfac,int nvert,int *A)
         set_elI(A,nvert,nvert,j+1,i3,i1);
     }
 }
+void alb_smooth(double *ealb,int nAlbedo,double *albreg,double *dalbreg)
+{
+    double sgn;
+    double alb;
+    for(int i=0;i<nAlbedo;i++)
+    {
+        alb=ealb[i];
+        sgn=(alb > 0) ? 1 : ((alb < 0) ? -1 : 0);
+        dalbreg[i*nAlbedo+i]=sgn;
+        albreg[i]=abs(alb);
+    }
+}
+
 void localsmooth(int *tlist,double *vlist,int nfac,int nvert,double *ealb,double *Alim,double *res,double *drda)
 {
     /*
@@ -71,7 +107,10 @@ int find_index(double *vect,int n,double x)
             return index;
     }
     fprintf(stderr,"NO VALID DATE WITHIN TOLERANCE LIMITS\n");
+    {
+        exit(1);
             return -1;
+    }
 }
 double sinc(double x)
 {
@@ -304,9 +343,11 @@ struct LC  *read_lcurve(char* filename,double min_tim)
      
       if(sscanf(buffer,"%d %d",&nobs,&cal)!=2)
           {
-    fprintf(stderr,"Error reading lcurve file!(nobs,cal)");
+    fprintf(stderr,"Error reading lcurve file!(nobs: %d,cal: %d), lc: %d\n",nobs,cal,i+1);
+    fprintf(stderr,"buffer was: %s\n",buffer);
       exit(-1);
   }
+ 
           /*Only relative for now, remember to fix this*/
       /*TODO: Also remember to remove comments*/
       (*tlc).nobs[i]=nobs;
@@ -1060,6 +1101,7 @@ void find_neighborhood(int *tlist,double *vlist,int nfac,int nvert,int *E,int *N
      * NB: THIS WORKS ONLY FOR SHAPES WITHOUT BOUNDARY. IF BOUNDARY EXISTS, WE SHOULD TEST IF E2[i2*nvert+i1]>0 BEFORE SETTING A*/
     /*NB2: E2 is a bit problematic, maybe we should index from 1?*/
     int i1,i2,i3;
+    
     for(int j=0;j<nfac;j++)
     {
         i1=tlist[3*j]-1;
@@ -1077,10 +1119,10 @@ void find_neighborhood(int *tlist,double *vlist,int nfac,int nvert,int *E,int *N
         N[i1*nfac+j]=1;
         N[i2*nfac+j]=1;
         N[i3*nfac+j]=1;
+        set_elI(E2,nvert,nvert,j,i1,i2);
+        set_elI(E2,nvert,nvert,j,i2,i3);
+        set_elI(E2,nvert,nvert,j,i3,i1);
         
-        E2[i1*nvert+i2]=j;
-        E2[i2*nvert+i3]=j;
-        E2[i3*nvert+i1]=j;
     }
     for(int j=0;j<nfac;j++)
     {

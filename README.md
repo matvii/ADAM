@@ -82,5 +82,6 @@ Matti Viikinkoski (matti.viikinkoski@gmail.com)
 - Inertia regularization [set INERWeight=? in [Optimization]]
 - Butterfly subdivision
 
-#### TODO
-- Integration of thermal modelling stuff into the main program
+#### 2.6.2020
+- Bugfixes and some minor improvements
+- Rewritten albedo code

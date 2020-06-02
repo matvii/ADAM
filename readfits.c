@@ -21,7 +21,15 @@ void readfits(char* filename,double **buffer,int x0,int y0,int nx,int ny,double 
     hgeti4(head,"NAXIS1",&naxis1);
     hgeti4(head,"NAXIS2",&naxis2);
     hgeti4(head,"BITPIX",&bitpix);
-    if(nx==0 || ny==0 || nx>naxis1 || ny>naxis2)
+    if ((x0<=0 || y0<=0 || nx<=0 || ny<=0 || x0+nx>naxis1 || y0+ny>naxis2) && (naxis1%2!=0 || naxis2%2!=0))
+   {
+       x0=1;
+       y0=1;
+       nx=naxis1-naxis1%2;
+       ny=naxis2-naxis2%2;
+       printf("Using the whole image %s, but size is odd. Fixing\n",filename);
+   }
+    if(x0<=0 || y0<=0 ||nx<=0 || ny<=0 || x0+nx>naxis1 || y0+ny>naxis2)
     {
     *xsize=naxis1;
     *ysize=naxis2;
@@ -56,6 +64,9 @@ void readfits(char* filename,double **buffer,int x0,int y0,int nx,int ny,double 
     free(head);
     free(image);
     *buffer=buf;
+    //printf("xsize: %d ysize: %d\n",*xsize,*ysize);
+    //write_matrix_file("/tmp/test.txt",*buffer,*ysize,*xsize);
+  //exit(1);
 }
  /*       
 void main()

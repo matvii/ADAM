@@ -1,8 +1,7 @@
 #include"utils.h"
 #include"matrix_ops.h"
+#include"globals.h"
 
-
-#define INI_MAX_RD_ANGLE 60
 void multmat(double A[3][3],double B[3][3],double C[3][3])
 {
   for(int i=0;i<3;i++)
@@ -258,8 +257,8 @@ double *dTBdx,*dTBdy,*dTBdz; //Derivatives of total brightness, allocating memor
      for(int jf=0;jf<nfreq;jf++)
      {
        tscale=scale*cexp(2*PI*I*(offset[0]*freqx[jf]+offset[1]*freqy[jf]));
-       
        FTC=tscale*F0[jf];
+      
        //F[jf]+=sign*ech*FTC;
        Fr[jf]+=creal(sign*ech*FTC);
        Fi[jf]+=cimag(sign*ech*FTC);
@@ -349,6 +348,7 @@ double *dTBdx,*dTBdy,*dTBdz; //Derivatives of total brightness, allocating memor
  dTBdA[0]+=dmudb*ech*area+mu*dechdA[0]*area;
  dTBdA[1]+=dmudl*ech*area+mu*dechdA[1]*area;
  dTBdA[2]+=dmudo*ech*area+mu*dechdA[2]*area;
+
 }
 // printf("TB: %7.8f\n",TB);
 // write_matrix_file("/tmp/dTBdA.txt",dTBdA,1,3);

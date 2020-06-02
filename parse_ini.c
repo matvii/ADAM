@@ -8,6 +8,8 @@
 #include"globals.h"
 //Build command gcc test_adam_ini.c -o test_adam_ini -Iiniparser/src -Liniparser -liniparser
 //Here are global variables
+double INI_MAX_RD_ANGLE=90;
+int     *INI_AO_FLIP;
 int     INI_SUBDIV_TYPE_BUTTERFLY=0;
 int     INI_IGNORE_AO_ALBEDO=0;
 int     INI_HAVE_LC=0;
@@ -28,6 +30,7 @@ double INI_ANGLE_P=NAN;
 double INI_ANGLE_PHI0=0;
 int INI_LMAX=0;
 int INI_SD_LEVEL=0;
+char *INI_ALBEDO_FILE=NULL;
 char *INI_SHAPE_FILE=NULL;
 char *INI_INPUT_AO_OFFSET=NULL;
 char *INI_OUTPUT_AO_OFFSET=NULL;
@@ -87,6 +90,7 @@ int *INI_FREE_CHORD_LIST=NULL;
 int INI_FREE_CHORD_NMR=0;
 int INI_FIX_SHAPE=0;
 int INI_FIX_ANGLES=0;
+int INI_FIX_PERIOD=0;
 int INI_FIX_A1=0;
 int INI_STAR_SHAPED=0;
 int INI_LC_ARE_RELATIVE=0;
@@ -103,10 +107,13 @@ char *OUT_OBJSHAPE_FILE=NULL;
 char *INI_RESTORE_STATE=NULL;
 char *OUT_LOG_FILE=NULL;
 double *INI_AO_REDUCE_ZERO=NULL;
+double *INI_DIA_PARAMS=NULL;
 int MAX_VERTICES=10000;
 int INI_FIX_VERTEX_NBR=0;
 int *INI_FIX_VERTEX_LIST;
 int INI_VERTEX_NORMAL=0;
+int *INI_RD_CENTER;
+int *INI_RD_DIM;
 int parse_ini(char *filename)
 {
     char *ephmfile;
@@ -163,6 +170,13 @@ int parse_ini(char *filename)
     s=iniparser_getstring(ini,"Shape:AlbedoFitOnly",0);
     if(s!=NULL)
         INI_ALBEDO_FIT_ONLY=atoi(s);
+    s=iniparser_getstring(ini,"Shape:InitAlbedoFile",NULL);
+    if(s!=NULL)
+    {
+        int slength=strlen(s);
+        INI_ALBEDO_FILE=calloc(slength+1,sizeof(char));
+        strcpy(INI_ALBEDO_FILE,s);
+    }
     s=iniparser_getstring(ini,"Shape:MinTim",NULL);
     if(s!=NULL)
         INI_MIN_TIM=atof(s);
@@ -198,6 +212,9 @@ int parse_ini(char *filename)
     s=iniparser_getstring(ini,"Shape:FixAngles",NULL);
     if(s!=NULL)
         INI_FIX_ANGLES=atoi(s);
+    s=iniparser_getstring(ini,"Shape:FixPeriod",NULL);
+    if(s!=NULL)
+        INI_FIX_PERIOD=atoi(s);
     s=iniparser_getstring(ini,"Shape:FixA1",NULL);
     if(s!=NULL)
         INI_FIX_A1=atoi(s);
@@ -215,7 +232,7 @@ int parse_ini(char *filename)
     }
     s=iniparser_getstring(ini,"Shape:RestoreAlbedo","1");
     INI_RESTORE_ALBEDO=atoi(s);
-    if(INI_FIX_SHAPE==1 || INI_FIX_ANGLES==1 ||INI_FIX_A1==1 || INI_STAR_SHAPED==1)
+    if(INI_FIX_SHAPE==1 || INI_FIX_ANGLES==1 ||INI_FIX_A1==1 || INI_STAR_SHAPED==1||INI_FIX_PERIOD==1)
         INI_MASK_SET=1;
     s=iniparser_getstring(ini,"Shape:VertexNormalFit","0");
     INI_VERTEX_NORMAL=atoi(s);
@@ -236,6 +253,16 @@ int parse_ini(char *filename)
     INI_AW=atof(s);
     s=iniparser_getstring(ini,"Optimization:DiAWeight","2");
     INI_DW=atof(s);
+    s=iniparser_getstring(ini,"Optimization:DiAParams",NULL);
+    if(s!=NULL)
+    {
+        INI_DIA_PARAMS=calloc(3,sizeof(double));
+        INI_DIA_PARAMS[0]=atof(strtok(s,","));
+        INI_DIA_PARAMS[1]=atof(strtok(NULL,","));
+        INI_DIA_PARAMS[2]=atof(strtok(NULL,","));
+        
+       
+    }
     s=iniparser_getstring(ini,"Optimization:DiAWeightDec","1");
     INI_DW_DEC=atof(s);
     s=iniparser_getstring(ini,"Optimization:OctWeight","20");
@@ -286,6 +313,9 @@ int parse_ini(char *filename)
         GlobalAOLowFreq=atoi(s);
     s=iniparser_getstring(ini,"Optimization:SetRDZero","-10");
     INI_SET_RD_ZERO=atof(s);
+    s=iniparser_getstring(ini,"Optimization:MaxRDAngle",NULL);
+    if(s!=NULL)
+        INI_MAX_RD_ANGLE=atof(s);
     s=iniparser_getstring(ini,"Data:UseLC","1");
     INI_HAVE_LC=atoi(s);
     s=iniparser_getstring(ini,"Data:UseAO","0");
@@ -485,6 +515,7 @@ int parse_ini(char *filename)
     {
     INI_AO_REDUCE_ZERO=calloc(nAO,sizeof(double));
     INI_AO_ROTANGLE=calloc(nAO,sizeof(double));
+    INI_AO_FLIP=calloc(nAO,sizeof(int));
     int *LowFreq=calloc(nAO,sizeof(int));
     AOfiles=calloc(nAO,sizeof(char*));
     AOWeight=calloc(nAO,sizeof(double));
@@ -620,6 +651,11 @@ int parse_ini(char *filename)
             s=iniparser_getstring(ini,sect,NULL);
             if(s!=NULL)
                 INI_AO_ROTANGLE[j]=atof(s);
+            snprintf(sect,20,"AO%d:FlipHor",j+1);
+            s=iniparser_getstring(ini,sect,NULL);
+            if(s!=NULL)
+                INI_AO_FLIP[j]=atoi(s);
+               
            snprintf(sect,20,"AO%d:LowFreq",j+1);
             s=iniparser_getstring(ini,sect,NULL);
             if(s!=NULL)
@@ -638,7 +674,7 @@ int parse_ini(char *filename)
             free(AOWeight);
         
     
-    int Large=100;
+    int Large=150;
     if(GlobalAOLowFreq==1)
         for(int jk=0;jk<nAO;jk++)
             LowFreq[jk]=1;
@@ -750,7 +786,11 @@ int parse_ini(char *filename)
     int UseRDWeight=0;
     int *RDLowFreq=calloc(nRD,sizeof(int));
     RDfiles=calloc(nRD,sizeof(char*));
-   
+    int *cx,*cy,*cxdim,*cydim;
+   cx=calloc(nRD,sizeof(int));
+   cy=calloc(nRD,sizeof(int));
+   cxdim=calloc(nRD,sizeof(int));
+   cydim=calloc(nRD,sizeof(int));
     //PSFfiles=calloc(nRD,sizeof(char*));
     x0=calloc(nRD,sizeof(int));
     y0=calloc(nRD,sizeof(int));
@@ -794,6 +834,23 @@ int parse_ini(char *filename)
           //  PSFfiles[j]=calloc(strlen(s)+1,sizeof(char));
          //   strcpy(PSFfiles[j],s);
           //  }
+            snprintf(sect,20,"RD%d:RDcenter",j+1);
+            s=iniparser_getstring(ini,sect,NULL);
+            if(s!=NULL)
+            {
+                cx[j]=atoi(strtok(s,","));
+                cy[j]=atoi(strtok(NULL,","));
+            }
+            snprintf(sect,20,"RD%d:RDFromCenter",j+1);
+            s=iniparser_getstring(ini,sect,NULL);
+            if(s!=NULL)
+            {
+                cxdim[j]=atoi(strtok(s,","));
+                cydim[j]=atoi(strtok(NULL,","));
+                //Rectx=cx[j]-cxdim[j]
+                //size=2*cxdim[j]
+                //[cx[j]-cxdim[j]:2*cxdim[j]+cx[j]-1
+            }
              snprintf(sect,20,"RD%d:RDRect",j+1); 
             s=iniparser_getstring(ini,sect,NULL);
             if(s!=NULL)
@@ -866,14 +923,14 @@ int parse_ini(char *filename)
        else
            free(RD_iWeight);
     
-    int Large=100;
+    int Large=500;
     
     
       double *E=calloc(Large*3,sizeof(double));
     double *E0=calloc(Large*3,sizeof(double));
     double *TIME=calloc(Large,sizeof(double));  
     int nephm=read_ephm_data(ephmfile,TIME,E,E0);
-    INI_RD=process_rd_images(RDfiles,nRD,x0,y0,nx,ny,pixscalex,pixscaley,date,RadarFreq,INI_MIN_TIM,E,TIME,nephm,RDLowFreq);
+    INI_RD=process_rd_images(RDfiles,nRD,x0,y0,nx,ny,cx,cy,cxdim,cydim,pixscalex,pixscaley,date,RadarFreq,INI_MIN_TIM,E,TIME,nephm,RDLowFreq);
     free(E);
     free(E0);
     free(TIME);
@@ -882,6 +939,10 @@ int parse_ini(char *filename)
     free(RDfiles[j]);
    
     }
+    free(cx);
+    free(cy);
+    free(cxdim);
+    free(cydim);
     free(x0);
     free(y0);
     free(nx);

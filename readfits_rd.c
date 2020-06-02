@@ -5,7 +5,7 @@
 #include"utils.h"
 #include"matrix_ops.h"
 #include"globals.h"
-void readfits_rd(char* filename,double **buffer,int x0,int y0,int nx,int ny,double *date,int *xsize,int *ysize,double *cdelt1,double *cdelt2)
+void readfits_rd(char* filename,double **buffer,int cx,int cy,int cxdim,int cydim,double *date,int *xsize,int *ysize,double *cdelt1,double *cdelt2)
 {
     /*Routine to read range-Doppler radar fits and information specific to it*/
     /*NOTE: xsize is HORIZONTAL axis,ysize is VERTICAL, so resulting image is ysize x xsize matrix*/
@@ -13,7 +13,9 @@ void readfits_rd(char* filename,double **buffer,int x0,int y0,int nx,int ny,doub
     char *head;
     char *image;
     double *buf;
+    double crpix1,crpix2;
     int imsize=0;
+    int nx=0,ny=0,x0=0,y0=0;
     int nlog;
     int naxis1,naxis2;
     float *fimage;
@@ -28,10 +30,51 @@ void readfits_rd(char* filename,double **buffer,int x0,int y0,int nx,int ny,doub
         *cdelt1=0;
     if(!hgetr8(head,"CDELT2",cdelt2))
         *cdelt2=0;
+    if(!hgetr8(head,"CRPIX1",&crpix1))
+        crpix1=0;
+    if(!hgetr8(head,"CRPIX2",&crpix2))
+        crpix2=0;
+    
+    
+    if(cx>0 && cy>0 && crpix1>0)
+        printf("RDcenter set, overriding CRPIX from the %s\n",filename); 
+    
+    if(cx>0 && cy>0 && cxdim>0 &&cydim>0)
+    {
+       
+        nx=2*cxdim;
+        ny=2*cydim;
+        x0=cx-cxdim;
+        y0=cy-cydim;
+    }
+    else if(cxdim>0 && cydim>0)
+    {
+       
+        cx=round(crpix1);
+        cy=round(crpix2);
+        nx=2*cxdim;
+        ny=2*cydim;
+        x0=cx-cxdim;
+        y0=cy-cydim;
+    }
+    
+    
+   
     hgeti4(head,"NAXIS1",&naxis1);
     hgeti4(head,"NAXIS2",&naxis2);
     hgeti4(head,"BITPIX",&bitpix);
-    if(nx==0 || ny==0 || nx>naxis1 || ny>naxis2)
+//  printf("file: %s cx %d cy %d nx %d ny %d x0: %d y0: %d cxdim: %d  cydim: %d naxis1 %d naxis2 %d\n",filename,cx,cy,nx,ny,x0,y0,cxdim,cydim,naxis1,naxis2);
+   if ((x0==0 || y0==0 || nx==0 || ny==0 || x0+nx>naxis1 || y0+ny>naxis2) && (naxis1%2!=0 || naxis2%2!=0))
+   {
+       x0=1;
+       y0=1;
+       nx=naxis1-naxis1%2;
+       ny=naxis2-naxis2%2;
+       printf("Using the whole image %s, but size is odd. Fixing\n",filename);
+   }
+   
+    
+    if(x0==0 || y0==0 || nx==0 || ny==0 || x0+nx>naxis1 || y0+ny>naxis2)
     {
     *xsize=naxis1;
     *ysize=naxis2;
@@ -72,7 +115,9 @@ void readfits_rd(char* filename,double **buffer,int x0,int y0,int nx,int ny,doub
     free(head);
     free(image);
     *buffer=buf;
-  
+    //printf("xsize: %d ysize: %d\n",*xsize,*ysize);
+    //write_matrix_file("/tmp/test.txt",*buffer,*ysize,*xsize);
+  //exit(1);
 }
 /*
 int main()

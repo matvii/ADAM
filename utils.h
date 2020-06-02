@@ -22,6 +22,9 @@
 #include<lapacke.h>
 #endif
 #include"wcstools-3.9.2/libwcs/fitsfile.h"
+void alb_smooth(double *ealb,int nAlbedo,double *albreg,double *dalbreg);
+double Albedo_Term(int *tlist,double *vlist,int nfac,int nvert, double *Alimit,double *Alb,int index,double* dAlbv);
+void albedo_smooth(int *tlist,double *vlist,int nfac,int nvert,double *ealb,double *Alim,double *res,double *drda);
 void inertia(int *tlist,double* vlist,int nfac,int nvert,double *D,int m,int n,double *result,double *angle,double *dres);
 void fit_vertex_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD,CNTRstruct *CR);
 void Generate_Normal_Deriv_Matrix_Pad(int *tlist,double *vlist,int nfac,int nvert,int *Nfacets,int *Facetlist,double *D,int padding);
@@ -43,8 +46,8 @@ void Calculate_RDs(int *tlist,double *vlist,int nfac,int nvert,double *angles,RD
 int read_vector_fileI(char *filename,int *buffer,int bufsize);
 void mask_matrix(int m,int *mask,double **D,int *n);
 int find_index(double *vect,int n,double x);
-void readfits_rd(char* filename,double **buffer,int x0,int y0,int nx,int ny,double *date,int *xsize,int *ysize,double *cdelt1,double *cdelt2);
-RDstruct * process_rd_images(char **filenames,int nao,int *x0,int *y0,int *nx,int *ny, double *dx,double *dy,double *dates,double *RadarFreq,double min_tim,double *E,double *TIME,int nephm,int* LowFreq);
+void readfits_rd(char* filename,double **buffer,int cx,int cy,int cxdim,int cydim,double *date,int *xsize,int *ysize,double *cdelt1,double *cdelt2);
+RDstruct * process_rd_images(char **filenames,int nao,int *x0,int *y0,int *nx,int *ny, int *cx,int *cy,int *cxdim,int *cydim,double *dx,double *dy,double *dates,double *RadarFreq,double min_tim,double *E,double *TIME,int nephm,int* LowFreq);
 void calc_image_fft_unnormed(double *M,int m,int n,double dx,double dy,double *zMr,double *zMi,double *Fx,double *Fy);
 double sinc(double x);
 int read_vector_file(char *filename,double *M,int n);

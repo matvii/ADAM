@@ -6,15 +6,18 @@ void dihedral_angle_reg(int *tlist,double *vlist,int nfac,int nvert,double *D,in
     /*OUTPUT:
      * result a double
      * dresdx 1x3*nvert+3 array
+     * regularization term: 1/(n1.n2)-1 for adjacent facets with normals n1 and n2
      */
     double mul=2;
     double cos_max_angle=0;
     double amul=1;
     double p=1;
+    double sgn=0;
+    double tres=0;
     if(INI_DIA_PARAMS)
     {
-        mul=INI_DIA_PARAMS[2]; //Exponent, usually 2
-        cos_max_angle=cos(INI_DIA_PARAMS[1]*2*PI/360.0); //Maximum angle, after which additional multiplier amul
+        mul=INI_DIA_PARAMS[2];
+        cos_max_angle=cos(INI_DIA_PARAMS[1]*2*PI/360.0);
         amul=INI_DIA_PARAMS[0];
     }
     *result=0;
@@ -49,17 +52,19 @@ void dihedral_angle_reg(int *tlist,double *vlist,int nfac,int nvert,double *D,in
     if(D==NULL)
    for(int j=0;j<nedge;j++)
    {
-       if(res[j]<cos_max_angle)
-           p=amul;
-       else
-           p=1;
-       (*result)+=p*pow(1-res[j],mul);
+       
+       
+       sgn=1.0;
+       if(res[j]<0)
+           sgn=-1.0;
+       
+       (*result)+=(sgn*1/res[j]-1);
        for(int k=0;k<nvert;k++)
        {
            
-           drsdx[k]+=-p*mul*pow(1-res[j],mul-1)*drdx[j*nvert+k];
-           drsdy[k]+=-p*mul*pow(1-res[j],mul-1)*drdy[j*nvert+k];
-           drsdz[k]+=-p*mul*pow(1-res[j],mul-1)*drdz[j*nvert+k];
+           drsdx[k]+=-sgn*1/pow(res[j],2)*drdx[j*nvert+k];
+           drsdy[k]+=-sgn*1/pow(res[j],2)*drdy[j*nvert+k];
+           drsdz[k]+=-sgn*1/pow(res[j],2)*drdz[j*nvert+k];
        }
    }
    else
@@ -69,17 +74,16 @@ void dihedral_angle_reg(int *tlist,double *vlist,int nfac,int nvert,double *D,in
        dresdz=calloc(nvert,sizeof(double));
     for(int j=0;j<nedge;j++)
    {
-       if(res[j]<cos_max_angle)
-           p=amul;
-       else
-           p=1;
-       (*result)+=p*pow(1-res[j],mul);
+       if(res[j]<0)
+           sgn=-1.0;
+       
+       (*result)+=sgn*1/res[j]-1;
        for(int k=0;k<nvert;k++)
        {
           
-           dresdx[k]+=-p*mul*pow(1-res[j],mul-1)*drdx[j*nvert+k];
-           dresdy[k]+=-p*mul*pow(1-res[j],mul-1)*drdy[j*nvert+k];
-           dresdz[k]+=-p*mul*pow(1-res[j],mul-1)*drdz[j*nvert+k];
+           dresdx[k]+=-sgn*1/pow(res[j],2)*drdx[j*nvert+k];
+           dresdy[k]+=-sgn*1/pow(res[j],2)*drdy[j*nvert+k];
+           dresdz[k]+=-sgn*1/pow(res[j],2)*drdz[j*nvert+k];
        }
    }
    matrix_prod(dresdx,1,nvert,D,dn,drsdx);

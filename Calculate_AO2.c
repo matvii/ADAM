@@ -26,7 +26,6 @@ double Calculate_AO(int *tlist,double *vlist,int nfac,int nvert,double *angles,d
  double E[3],E0[3];
  double normalr[3],side1[3],side2[3];
  double dechdx[3],dechdy[3],dechdz[3],dechdA[3];
- double dAlb3[3];
  double n[3],*nb,*cent;
  double *vb1,*vb2,*vb3;
  double vr1[3],vr2[3],vr3[3];
@@ -150,14 +149,14 @@ FindActualBlockers(tlist,vlist,nfac,nvert,E,E0,1,visible);
         }
         else
         {
-            //alb=A[j];
+            alb=A[j];
             
-            alb_term=Albedo_Term(tlist,vlist,nfac,nvert,Alimit,A,j,dAlb3);
+            alb_term=(la+ha)/2+(ha-la)/2*tanh(alb);
         }
     if(INI_HAPKE!=NULL)
         dhapke_bright_fac(E,E0,mu,mu0,INI_HAPKE,INI_HAPKE[4],&B,&dt2,&dt1);
     else
-        B=mu0*(1.0/(mu+mu0)+0.1); //mu removed here
+        B=mu*mu0*(1.0/(mu+mu0)+0.1); //mu removed here
      for(int jf=0;jf<nfreq;jf++)
      {
       
@@ -166,9 +165,9 @@ FindActualBlockers(tlist,vlist,nfac,nvert,E,E0,1,visible);
        
       }
       if(INI_HAPKE!=NULL)
-          TB=TB+alb_term*AOalb*B*mu*area;
+          TB=TB+alb_term*AOalb*B*area;
       else
-        TB=TB+alb_term*AOalb*B*area*mu;
+        TB=TB+alb_term*AOalb*B*area;
     
 
 }
@@ -210,7 +209,6 @@ void Calculate_AO_deriv(int *tlist,double *vlist,int nfac,int nvert,double *angl
  double dBdx1,dBdy1,dBdz1,dBdx2,dBdy2,dBdz2,dBdx3,dBdy3,dBdz3,dBdb,dBdl,dBdo; //Derivatives of facet brightness
  double *dTBdx,*dTBdy,*dTBdz; //Derivatives of total brightness, allocating memory
  double dTBdA[3]={0.0,0.0,0.0};
- double dAlb3[3];
  dTBdx=calloc(nvert,sizeof(double));
  dTBdy=calloc(nvert,sizeof(double));
  dTBdz=calloc(nvert,sizeof(double));
@@ -242,8 +240,8 @@ void Calculate_AO_deriv(int *tlist,double *vlist,int nfac,int nvert,double *angl
      ha=Alimit[1];
      if(INI_FIT_AO_ALBEDO==1)
      {
-     dAlb=calloc(nfreq*nvert,sizeof(double complex));
-     dAlbTB=calloc(nvert,sizeof(double));
+     dAlb=calloc(nfreq*nfac,sizeof(double complex));
+     dAlbTB=calloc(nfac,sizeof(double));
      }
  }
  
@@ -338,9 +336,9 @@ for(int j=0;j<nfac;j++)
         }
         else
         {
-           // alb=A[j];
+            alb=A[j];
            // dSdalb[e*numfac+j]=phase*(ha-la)*exp(alb)/pow(exp(alb)+1,2)*Scatt*area[j];
-            alb_term=Albedo_Term(tlist,vlist,nfac,nvert,Alimit,A,j,dAlb3);
+            alb_term=(la+ha)/2+(ha-la)/2*tanh(alb);
             
         }
     //
@@ -400,9 +398,9 @@ for(int j=0;j<nfac;j++)
         dhapke_bright_fac(E,E0,mu,mu0,INI_HAPKE,INI_HAPKE[4],&B,&mut,&mu0t);
     else
     {
-        B=mu0*(1.0/(mu+mu0)+0.1); //mu removed here
-        mu0t=(mu/pow(mu+mu0,2)+0.1);
-        mut=-mu0/pow(mu+mu0,2);
+        B=mu*mu0*(1.0/(mu+mu0)+0.1); //mu removed here
+        mu0t=mu*(0.1+mu/pow(mu+mu0,2));
+        mut=mu0*(0.1+mu0/pow(mu+mu0,2));
     }
    //Derivatives of B
    
@@ -422,18 +420,18 @@ for(int j=0;j<nfac;j++)
    dBdo=mu0t*dmu0do+mut*dmudo;
    //Derivative of total brightness
    
-       dTBdx[j1]+=dBdx1*area*mu+B*dAdx[0]*mu+B*area*dmudx1;
-       dTBdx[j2]+=dBdx2*area*mu+B*dAdx[1]*mu+B*area*dmudx2;
-       dTBdx[j3]+=dBdx3*area*mu+B*dAdx[2]*mu+B*area*dmudx3;
-       dTBdy[j1]+=dBdy1*area*mu+B*dAdy[0]*mu+B*area*dmudy1;
-       dTBdy[j2]+=dBdy2*area*mu+B*dAdy[1]*mu+B*area*dmudy2;
-       dTBdy[j3]+=dBdy3*area*mu+B*dAdy[2]*mu+B*area*dmudy3;
-       dTBdz[j1]+=dBdz1*area*mu+B*dAdz[0]*mu+B*area*dmudz1;
-       dTBdz[j2]+=dBdz2*area*mu+B*dAdz[1]*mu+B*area*dmudz2;
-       dTBdz[j3]+=dBdz3*area*mu+B*dAdz[2]*mu+B*area*dmudz3;
-       dTBdA[0]+=dBdb*area*mu+B*area*dmudb;
-       dTBdA[1]+=dBdl*area*mu+B*area*dmudl;
-       dTBdA[2]+=dBdo*area*mu+B*area*dmudo;
+       dTBdx[j1]+=dBdx1*area+B*dAdx[0];
+       dTBdx[j2]+=dBdx2*area+B*dAdx[1];
+       dTBdx[j3]+=dBdx3*area+B*dAdx[2];
+       dTBdy[j1]+=dBdy1*area+B*dAdy[0];
+       dTBdy[j2]+=dBdy2*area+B*dAdy[1];
+       dTBdy[j3]+=dBdy3*area+B*dAdy[2];
+       dTBdz[j1]+=dBdz1*area+B*dAdz[0];
+       dTBdz[j2]+=dBdz2*area+B*dAdz[1];
+       dTBdz[j3]+=dBdz3*area+B*dAdz[2];
+       dTBdA[0]+=dBdb*area;
+       dTBdA[1]+=dBdl*area;
+       dTBdA[2]+=dBdo*area;
        
    
    for(int jf=0;jf<nfreq;jf++)
@@ -441,9 +439,7 @@ for(int j=0;j<nfac;j++)
      F[jf]+=alb_term*B*F0[jf];
      if(albedo==1 && INI_FIT_AO_ALBEDO==1)
      {
-        dAlb[jf*nvert+j1]+=dAlb3[0]*B*F0[jf];
-        dAlb[jf*nvert+j2]+=dAlb3[1]*B*F0[jf];
-        dAlb[jf*nvert+j3]+=dAlb3[2]*B*F0[jf];
+        dAlb[jf*nfac+j]=(ha-la)/2*(1-pow(tanh(alb),2))*B*F0[jf];
         
      }
        FTdx[jf*nvert+j1]+=dBdx1*F0[jf]+B*(FTda[jf]*dadx+FTdb[jf]*dbdx);
@@ -465,24 +461,20 @@ for(int j=0;j<nfac;j++)
      }
     if(INI_HAPKE!=NULL)
     {
-        TB=TB+alb_term*B*area*mu;
+        TB=TB+alb_term*B*area;
         if(albedo==1 && INI_FIT_AO_ALBEDO==1)
         {
             
-            dAlbTB[j1]+=dAlb3[0]*B*area*mu;
-            dAlbTB[j2]+=dAlb3[1]*B*area*mu;
-            dAlbTB[j3]+=dAlb3[2]*B*area*mu;
+            dAlbTB[j]=(ha-la)/2*(1-pow(tanh(alb),2))*B*area*mu;
         }
     }
     else
     {
-      TB=TB+alb_term*B*area*mu;
+      TB=TB+alb_term*B*area;
         if(albedo==1 && INI_FIT_AO_ALBEDO==1)
         {
             
-           dAlbTB[j1]+=dAlb3[0]*B*area*mu;
-            dAlbTB[j2]+=dAlb3[1]*B*area*mu;
-            dAlbTB[j3]+=dAlb3[2]*B*area*mu;
+            dAlbTB[j]=(ha-la)/2*(1-pow(tanh(alb),2))*B*area;
         }
     }       
 }
@@ -518,7 +510,7 @@ for(int j=0;j<nfreq;j++)
 }
 if(albedo==1 && INI_FIT_AO_ALBEDO==1)
 {
-    for(int k=0;k<nvert;k++)
+    for(int k=0;k<nfac;k++)
         for(int j=0;j<nfreq;j++)
         {
             scale=cexp(2.0*PI*I*(offset[0]*freqx[j]+offset[1]*freqy[j]));
@@ -526,9 +518,9 @@ if(albedo==1 && INI_FIT_AO_ALBEDO==1)
             temp=scale*F[j]/TB;
             Fr[j]=creal(temp);
             Fi[j]=cimag(temp);
-            temp=scale*(dAlb[j*nvert+k]*TB-F[j]*dAlbTB[k])/TB2;
-            dAr[j*nvert+k]=creal(temp);
-            dAi[j*nvert+k]=cimag(temp);
+            temp=scale*(dAlb[j*nfac+k]*TB-F[j]*dAlbTB[k])/TB2;
+            dAr[j*nfac+k]=creal(temp);
+            dAi[j*nfac+k]=cimag(temp);
         }
         free(dAlb);
         free(dAlbTB);

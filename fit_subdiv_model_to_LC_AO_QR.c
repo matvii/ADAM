@@ -21,14 +21,34 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         read_shape(INI_SHAPE_FILE,&tlist,&vlist,&nfac,&nvert,0);
     else if(INI_RESTORE_STATE && INI_SD_LEVEL==-1)
     {
+        int LMAX;
+        int res=read_state_fileI(INI_RESTORE_STATE,"#LMAX",&LMAX,1); //We restore from octantoid parameterization
+        if(res>0 && INI_NROWS>0)
+        {
+            int alength;
+           nfac=8*pow(INI_NROWS,2);
+            nvert=4*pow(INI_NROWS,2)+2;
+            vlist=calloc(3*nvert,sizeof(double));
+            tlist=calloc(3*nfac,sizeof(int));
+            read_state_fileI(INI_RESTORE_STATE,"#ParamLength",&alength,1);
+            double *a=calloc(alength,sizeof(double));
+            read_state_file(INI_RESTORE_STATE,"#aParams",a,alength);
+            double *D1=calloc((3*nvert+3)*(alength+3),sizeof(double));
+            octantoid_to_trimesh(a,LMAX,INI_NROWS,tlist,vlist,D1,3);
+            free(D1);
+            free(a);
+        }
+        else
+        {
          read_state_fileI(INI_RESTORE_STATE,"#NFacets",&nfac,1);
          read_state_fileI(INI_RESTORE_STATE,"#NVertices",&nvert,1);
          vlist=calloc(3*nvert,sizeof(double));
          tlist=calloc(3*nfac,sizeof(int));
          read_state_fileI(INI_RESTORE_STATE,"#PolyhedronFacets",tlist,3*nfac);
          read_state_file(INI_RESTORE_STATE,"#PolyhedronVertices",vlist,3*nvert);
-        
+        }
     }
+
     else
     {
         nfac=8*pow(INI_NROWS,2);
@@ -79,16 +99,18 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         
         if(INI_FIT_ALBEDO==1)
         {
-            nAlbedo=nfacn;
-            eAlbedo=calloc(nfacn,sizeof(double));
-            eAlbedo2=calloc(nfacn,sizeof(double));
-            dLCdalb=calloc(nLCtotal*nfacn,sizeof(double));
-            Alblimits=calloc(2,sizeof(double));
-            Alblimits[0]=INI_ALBEDO_MIN;
-            Alblimits[1]=INI_ALBEDO_MAX;
-            Albreg=calloc(nfacn,sizeof(double));
-            dAlbreg=calloc(nfacn*nfacn,sizeof(double));
-            nAlbreg=nfacn;
+            
+            nAlbedo=nvertn;
+        eAlbedo=calloc(nAlbedo,sizeof(double));
+        
+        eAlbedo2=calloc(nAlbedo,sizeof(double));
+        dLCdalb=calloc(nLCtotal*nAlbedo,sizeof(double));
+        Alblimits=calloc(2,sizeof(double));
+        Alblimits[0]=INI_ALBEDO_MIN;
+        Alblimits[1]=INI_ALBEDO_MAX;
+        Albreg=calloc(nAlbedo,sizeof(double));
+        dAlbreg=calloc(nAlbedo*nAlbedo,sizeof(double));
+        nAlbreg=nAlbedo;
         }
     }
     
@@ -127,7 +149,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         }
         if(INI_FIT_AO_ALBEDO)
         {
-            dAOdAlb=calloc(nAOtotal*nfacn,sizeof(double));
+            dAOdAlb=calloc(nAOtotal*nAlbedo,sizeof(double));
         }
     }
     int nCRtotal=0;
@@ -467,11 +489,11 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         int albcount=0;
         if(INI_HAVE_LC && INI_FIT_ALBEDO && INI_RESTORE_ALBEDO)
         {
-            albcount=read_state_file(INI_RESTORE_STATE,"#Albedolog",eAlbedo,nfacn);
-            if(albcount!=nfacn)
+            albcount=read_state_file(INI_RESTORE_STATE,"#Albedolog",eAlbedo,nAlbedo);
+            if(albcount!=nAlbedo)
             {
-                printf("There are %d albedo values, but %d facets. Discarding loaded albedos\n",albcount,nfacn);
-                zero_array(eAlbedo,nfacn);
+                printf("There are %d albedo values, but %d vertices. Discarding loaded albedos\n",albcount,nAlbedo);
+                zero_array(eAlbedo,nAlbedo);
             }
         }
          if(INI_HAVE_RD)
@@ -502,13 +524,14 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 ///////////DEBUG/////////////////////////////////////
                 if(INI_FIT_ALBEDO==1)
                 {
-                    mult_with_cons(dLCdalb,nLCtotal,nfacn,lcW);
-                    localsmooth(tlistn,vlistn,nfacn,nvertn,eAlbedo,Alblimits,Albreg,dAlbreg);
-                    mult_with_cons(dAlbreg,nfacn,nfacn,-INI_ALBREGW);
-                    mult_with_cons(Albreg,1,nfacn,INI_ALBREGW);
-                    set_submatrix(S,1,Slength,Albreg,1,nfacn,0,Albregpos);
-                    set_submatrix(J,Slength,nJcols,dLCdalb,nLCtotal,nfacn,0,Albcolpos);
-                    set_submatrix(J,Slength,nJcols,dAlbreg,nfacn,nfacn,Albregpos,Albcolpos);
+                    mult_with_cons(dLCdalb,nLCtotal,nAlbedo,lcW);
+                    //localsmooth(tlistn,vlistn,nfacn,nvertn,eAlbedo,Alblimits,Albreg,dAlbreg);
+                    alb_smooth(eAlbedo,nAlbedo,Albreg,dAlbreg);
+                    mult_with_cons(dAlbreg,nAlbedo,nAlbedo,-INI_ALBREGW);
+                    mult_with_cons(Albreg,1,nAlbedo,INI_ALBREGW);
+                    set_submatrix(S,1,Slength,Albreg,1,nAlbedo,0,Albregpos);
+                    set_submatrix(J,Slength,nJcols,dLCdalb,nLCtotal,nAlbedo,0,Albcolpos);
+                    set_submatrix(J,Slength,nJcols,dAlbreg,nAlbedo,nAlbedo,Albregpos,Albcolpos);
                 }
                 mult_with_cons(LCout,1,nLCtotal,lcW);
                 mult_with_cons(dLCdv,nLCtotal,3*nvert+3,lcW);
@@ -549,8 +572,8 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 }
                 if(INI_FIT_AO_ALBEDO)
                 {
-                    mult_with_cons(dAOdAlb,nAOtotal,nfacn,AOW);
-                    set_submatrix(J,Slength,nJcols,dAOdAlb,nAOtotal,nfacn,nLCtotal,Albcolpos);
+                    mult_with_cons(dAOdAlb,nAOtotal,nAlbedo,AOW);
+                    set_submatrix(J,Slength,nJcols,dAOdAlb,nAOtotal,nAlbedo,nLCtotal,Albcolpos);
                 }
                 
             }
@@ -804,7 +827,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             if(INI_MASK_SET==1)
             {
                 if(INI_FIX_ALBEDO==1)
-                    for(int k=0;k<nfacn;k++)
+                    for(int k=0;k<nAlbedo;k++)
                         Mask[Albcolpos+k]=1;
                     free(Mask_Matrix);
                 mask_matrix(nJcols,Mask,&Mask_Matrix,&nMask);
@@ -894,7 +917,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         
         if(INI_HAVE_LC && INI_FIT_ALBEDO==1)
         {
-            for(int j=0;j<nfacn;j++)
+            for(int j=0;j<nAlbedo;j++)
                 eAlbedo2[j]=eAlbedo[j]+X[Albcolpos+j];
         }
         angles2[0]=angles[0]+X[3*nvert];
@@ -926,9 +949,10 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
         
         if(INI_FIT_ALBEDO==1)
         {
-            localsmooth(tlistn,vlistn,nfacn,nvertn,eAlbedo2,Alblimits,Albreg,dAlbreg);
-            mult_with_cons(Albreg,1,nfacn,INI_ALBREGW);
-            set_submatrix(S,1,Slength,Albreg,1,nfacn,0,Albregpos);
+            alb_smooth(eAlbedo2,nAlbedo,Albreg,dAlbreg);
+            //localsmooth(tlistn,vlistn,nfacn,nvertn,eAlbedo2,Alblimits,Albreg,dAlbreg);
+            mult_with_cons(Albreg,1,nAlbedo,INI_ALBREGW);
+            set_submatrix(S,1,Slength,Albreg,1,nAlbedo,0,Albregpos);
         }
          mult_with_cons(LCout,1,nLCtotal,lcW);
          set_submatrix(S,1,Slength,LCout,1,nLCtotal,0,0);
@@ -1022,7 +1046,7 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             angles[1]=angles2[1];
             angles[2]=angles2[2];
             if(INI_FIT_ALBEDO==1)
-                memcpy(eAlbedo,eAlbedo2,sizeof(double)*nfacn);
+                memcpy(eAlbedo,eAlbedo2,sizeof(double)*nAlbedo);
             if(INI_PHASE_PARAMS!=NULL)
                 memcpy(params,params2,sizeof(double)*3);
             if(INI_HAVE_AO)
@@ -1169,10 +1193,13 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
                 {
                     fprintf(fp,"#Albedo: %d\n",nfacn);
                     for(int j=0;j<nfacn;j++)
-                        fprintf(fp,"%.4f ",(Alblimits[0]+Alblimits[1])/2.0+(Alblimits[1]-Alblimits[0])/2.0*tanh(eAlbedo[j]));
+                    {
+                        
+                        fprintf(fp,"%.2f ",(Alblimits[0]+Alblimits[1])/2.0+(Alblimits[1]-Alblimits[0])/2.0*(tanh(eAlbedo[tlistn[3*j]-1])+tanh(eAlbedo[tlistn[3*j+1]-1])+tanh(eAlbedo[tlistn[3*j+2]-1]))/3);
+                    }
                     fprintf(fp,"\n");
-                    fprintf(fp,"#Albedolog: %d\n",nfacn);
-                    for(int j=0;j<nfacn;j++)
+                    fprintf(fp,"#Albedolog: %d\n",nAlbedo);
+                    for(int j=0;j<nAlbedo;j++)
                         fprintf(fp,"%.4f ",eAlbedo[j]);
                     fprintf(fp,"\n");
                     fprintf(fp,"#AOtotalbright:\n");
@@ -1253,8 +1280,11 @@ void fit_subdiv_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *
             if(INI_HAVE_LC && INI_FIT_ALBEDO==1 && INI_ALBEDO_OUT_FILE!=NULL)
             {
                 double *falbedo=calloc(nfacn,sizeof(double));
-                for(int j=0;j<nfacn;j++)
-                    falbedo[j]=(Alblimits[0]+Alblimits[1])/2.0+(Alblimits[1]-Alblimits[0])/2.0*tanh(eAlbedo[j]);
+                    
+                for(int j=0;j<nfacn;j++) {
+                    falbedo[j]=(Alblimits[0]+Alblimits[1])/2.0+(Alblimits[1]-Alblimits[0])/2.0*(tanh(eAlbedo[tlistn[3*j]-1])+tanh(eAlbedo[tlistn[3*j+1]-1])+tanh(eAlbedo[tlistn[3*j+2]-1]))/3;
+                
+                }
                 write_matrix_file(INI_ALBEDO_OUT_FILE,falbedo,1,nfacn);
                 free(falbedo);
             }

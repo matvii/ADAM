@@ -1,4 +1,4 @@
-function I2=project_mesh_2d(tlist,vlist,angles,time,E,E0,distance,up,pixsize,imsize,psf,albedo,shade)
+function I2=project_mesh_2d(tlist,vlist,angles,time,E,E0,distance,up,pixsize,imsize,psf,shade)
 dp=1/(distance*149597871)*180/pi*3600;
 if size(angles,2)==3
     w0=0;
@@ -14,16 +14,16 @@ vlist2=dp*(M*R'*vlist')';
 %mu0=normal*(R*E0');
 %invis=(mu<=0)|(mu0<=0);
 %shade=mu.*mu0.*(1./(mu+mu0)+0.1);
-if ~isempty(albedo) && all(size(shade)==size(albedo(:)))
-    shade=shade.*albedo(:);
-end
-if  isempty(shade)
-    mu=normal*(R*E');
-mu0=normal*(R*E0');
-%invis=(mu<=0)|(mu0<=0);
-shade=mu.*mu0.*(1./(mu+mu0)+0.1);
-shade(~visible)=0;
-end
+% if ~isempty(albedo) && all(size(shade)==size(albedo(:)))
+%     shade=shade.*albedo(:);
+% end
+% if  isempty(shade)
+%     mu=normal*(R*E');
+% mu0=normal*(R*E0');
+% %invis=(mu<=0)|(mu0<=0);
+% shade=mu.*mu0.*(1./(mu+mu0)+0.1);
+% shade(~visible)=0;
+% end
 I= mesh_rasterize2(tlist,vlist2,visible,[pixsize,pixsize],[imsize,imsize]);
 shade=[0;shade];
 %keyboard

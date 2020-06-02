@@ -70,7 +70,7 @@ omp_set_num_threads(NUM_THREADS);
 #pragma omp parallel for
 for(int obsind=0;obsind<nao;obsind++)
   {
-     //  printf("Thread %d, number of threads %d\n",omp_get_thread_num(),omp_get_num_threads());
+//   printf("Thread %d, number of threads %d\n",omp_get_thread_num(),omp_get_num_threads());
       double Scale=1;
      if(UseScale==1)
          Scale=exp(scale[obsind]);
@@ -186,8 +186,8 @@ for(int obsind=0;obsind<nao;obsind++)
     FTdzi=calloc(nopoints[obsind]*nvertf,sizeof(double));
    if(INI_FIT_AO_ALBEDO==1)
    {
-       dFTdAlbr=calloc(nopoints[obsind]*nfac,sizeof(double));
-       dFTdAlbi=calloc(nopoints[obsind]*nfac,sizeof(double));
+       dFTdAlbr=calloc(nopoints[obsind]*nvert,sizeof(double));
+       dFTdAlbi=calloc(nopoints[obsind]*nvert,sizeof(double));
    }
  datar=AOs->datar[obsind];
    datai=AOs->datai[obsind];
@@ -293,13 +293,13 @@ for(int obsind=0;obsind<nao;obsind++)
           FTdoffi[k1*2+1]=FTdoffi[k1*2+1]*psfr[k1]+psfi[k1]*temp;
       }
        //If albedo is used, calculate albedo derivatives
-       if(Albedo!=NULL)
+       if(INI_FIT_AO_ALBEDO==1)
            for (int k1=0;k1<oind;k1++)
-               for(int k2=0;k2<nfac;k2++)
+               for(int k2=0;k2<nvert;k2++)
                {
-                   temp=dFTdAlbr[k1*nfac+k2];
-                   dFTdAlbr[k1*nfac+k2]=dFTdAlbr[k1*nfac+k2]*psfr[k1]-dFTdAlbi[k1*nfac+k2]*psfi[k1];
-                   dFTdAlbi[k1*nfac+k2]=dFTdAlbi[k1*nfac+k2]*psfr[k1]+temp*psfi[k1];
+                   temp=dFTdAlbr[k1*nvert+k2];
+                   dFTdAlbr[k1*nvert+k2]=dFTdAlbr[k1*nvert+k2]*psfr[k1]-dFTdAlbi[k1*nvert+k2]*psfi[k1];
+                   dFTdAlbi[k1*nvert+k2]=dFTdAlbi[k1*nvert+k2]*psfr[k1]+temp*psfi[k1];
                }
                
         }
@@ -327,8 +327,8 @@ if(UseWeight==1)
 
     if(INI_FIT_AO_ALBEDO)
     {
-        mult_with_cons(dFTdAlbr,oind,nfac,W);
-        mult_with_cons(dFTdAlbi,oind,nfac,W);
+        mult_with_cons(dFTdAlbr,oind,nvert,W);
+        mult_with_cons(dFTdAlbi,oind,nvert,W);
     }
 }
 if(UseScale==1)
@@ -347,8 +347,8 @@ if(UseScale==1)
     mult_with_cons(FTdoffi,oind,2,Scale);
 if(INI_FIT_AO_ALBEDO)
     {
-        mult_with_cons(dFTdAlbr,oind,nfac,Scale);
-        mult_with_cons(dFTdAlbi,oind,nfac,Scale);
+        mult_with_cons(dFTdAlbr,oind,nvert,Scale);
+        mult_with_cons(dFTdAlbi,oind,nvert,Scale);
     }
     //derivatives wrt Scale
     
@@ -376,8 +376,8 @@ set_submatrix(FTdv,2*ntpoints,3*dn+3+2*nao,FTdoffi,oind,2,cind+ntpoints,3*nvertf
 //If albedo is set 
 if(INI_FIT_AO_ALBEDO)
 {
-    set_submatrix(dA,2*ntpoints,nfac,dFTdAlbr,oind,nfac,cind,0);
-    set_submatrix(dA,2*ntpoints,nfac,dFTdAlbi,oind,nfac,cind+ntpoints,0);
+    set_submatrix(dA,2*ntpoints,nvert,dFTdAlbr,oind,nvert,cind,0);
+    set_submatrix(dA,2*ntpoints,nvert,dFTdAlbi,oind,nvert,cind+ntpoints,0);
 }
 free(FTdxr);
 free(FTdxi);

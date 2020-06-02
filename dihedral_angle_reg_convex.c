@@ -1,6 +1,7 @@
 #include"utils.h"
 #include"matrix_ops.h"
 #include"globals.h"
+void dihedral_angle_convex(int* tlist,double* vlist,int nfac,int nvert,double *res,int *angletype,int *EV,double *dresdx,double *dresdy,double *dresdz);
 void dihedral_angle_reg(int *tlist,double *vlist,int nfac,int nvert,double *D,int dm,int dn,double *result,double *drsdv)
 {
     /*OUTPUT:
@@ -11,6 +12,7 @@ void dihedral_angle_reg(int *tlist,double *vlist,int nfac,int nvert,double *D,in
     double cos_max_angle=0;
     double amul=1;
     double p=1;
+    int *angletype;
     if(INI_DIA_PARAMS)
     {
         mul=INI_DIA_PARAMS[2]; //Exponent, usually 2
@@ -25,6 +27,7 @@ void dihedral_angle_reg(int *tlist,double *vlist,int nfac,int nvert,double *D,in
    drdx=calloc(nedge*nvert,sizeof(double));
    drdy=calloc(nedge*nvert,sizeof(double));
    drdz=calloc(nedge*nvert,sizeof(double));
+   angletype=calloc(nedge,sizeof(int));
 //   
    if(res==NULL || drdx==NULL || drdy==NULL || drdz==NULL)
    {
@@ -35,7 +38,7 @@ void dihedral_angle_reg(int *tlist,double *vlist,int nfac,int nvert,double *D,in
    
    double *dresdx,*dresdy,*dresdz;
    EV=malloc(nvert*nvert*sizeof(int));
-   dihedral_angle(tlist,vlist,nfac,nvert,res,EV,drdx,drdy,drdz);
+   dihedral_angle_convex(tlist,vlist,nfac,nvert,res,angletype,EV,drdx,drdy,drdz);
    if(D!=NULL && dm!=nvert)
     {
         puts("Error: Number of vertex coordinates is not equal to the number of rows in D.");
@@ -53,6 +56,8 @@ void dihedral_angle_reg(int *tlist,double *vlist,int nfac,int nvert,double *D,in
            p=amul;
        else
            p=1;
+       if(angletype[j]==0)
+           p=0;
        (*result)+=p*pow(1-res[j],mul);
        for(int k=0;k<nvert;k++)
        {

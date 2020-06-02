@@ -1,5 +1,5 @@
 #include"utils.h"
-void dihedral_angle(int* tlist,double* vlist,int nfac,int nvert,double *res,int *EV,double *dresdx,double *dresdy,double *dresdz)
+void dihedral_angle_convex(int* tlist,double* vlist,int nfac,int nvert,double *res,int *angletype,int *EV,double *dresdx,double *dresdy,double *dresdz)
 {
     /*For each edge calculate the (cosine of) dihedral angle, ie the angle between the normals of
      * adjacent facets
@@ -7,6 +7,7 @@ void dihedral_angle(int* tlist,double* vlist,int nfac,int nvert,double *res,int 
      * dihedral angle of edge between vertices (i,j) (and (j,i))
      * OUTPUT:
      * res nfac+nvert-2 array
+     * angletype int nfac+nvert-2 array, 1 if angle is convex, 0 otherwise
      * EV nvertxnvert matrix
      * dresdx nedgexnvert matrix */
     
@@ -23,6 +24,8 @@ void dihedral_angle(int* tlist,double* vlist,int nfac,int nvert,double *res,int 
     double dn2dz1[3],dn2dz2[3],dn2dz3[3];
     double area;
     double dAdx[3],dAdy[3],dAdz[3];
+    double c1[3],c2[3],c[3];
+    double anglesign;
     E=calloc(nvert*nvert,sizeof(int));
      N=calloc(nvert*nfac,sizeof(int));
      E2=calloc(nvert*nvert,sizeof(int));
@@ -68,7 +71,19 @@ void dihedral_angle(int* tlist,double* vlist,int nfac,int nvert,double *res,int 
             Calculate_Area_and_Normal_Derivative(w1,w2,w3,n2,dn2dx1,dn2dx2,dn2dx3,dn2dy1,dn2dy2,dn2dy3,dn2dz1,dn2dz2,dn2dz3,&area,dAdx,dAdy,dAdz);
             //We don't care about areas here
             res[count]=DOT(n1,n2);
-           
+           c1[0]=(v1[0]+v2[0]+v3[0]);
+           c1[1]=(v1[1]+v2[1]+v3[1]);
+           c1[2]=(v1[2]+v2[2]+v3[2]);
+           c2[0]=(w1[0]+w2[0]+w3[0]);
+           c2[1]=(w1[1]+w2[1]+w3[1]);
+           c2[2]=(w1[2]+w2[2]+w3[2]);
+           c[0]=c2[0]-c1[0];
+           c[1]=c2[1]-c1[1];
+           c[2]=c2[2]-c1[2];
+           anglesign=n1[0]*c[0]+n1[1]*c[1]+n1[2]*c[2];
+           angletype[count]=0;
+           if(anglesign<0)
+               angletype[count]=1;
             dresdx[count*nvert+i1]=DOT(dn1dx1,n2);
             dresdy[count*nvert+i1]=DOT(dn1dy1,n2);
             dresdz[count*nvert+i1]=DOT(dn1dz1,n2);

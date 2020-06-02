@@ -14,13 +14,13 @@ void calc_image_fft(double *M,int m,int n,double dx,double dy,double *zMr,double
      * Lx=n*dx, Ly=m*dy
      * Returns 2d fft transform of M,m x (n/2) matrix, with reals in in zMr and imaginary part in zMi 
      * corresponding frequencies in x-direction
-     * 0,1/Lx,2/Lx,...(n/2-1)*1/Lx
+     * 0,1/Lx,2/Lx,...(n/2)*1/Lx
      * and in y direction
      * 0,1/Ly,..,(m/2-1)*1/Ly,-m/2*Ly,...,-1/Ly
-     * So first n/2 entries in zMr+i*zMi correspond to spatial frequencies fx=0,1/Lx,...(n/2-1)*1/Lx and fy=0
-     * next n/2 entries correspond to fx=0,1/Lx,...(n/2-1)*1/Lx and fy=1/Ly
+     * So first n/2 entries in zMr+i*zMi correspond to spatial frequencies fx=0,1/Lx,...(n/2)*1/Lx and fy=0
+     * next n/2 entries correspond to fx=0,1/Lx,...(n/2)*1/Lx and fy=1/Ly
      * NOTE: We normalize with DC term and then drop it*/
-    /*Output: zMr,zMi m*(n/2)-1 arrays, Fx,Fy m*(n/2)-1 arrays. The kth term of zMr+zMi corresponds to frequency Fx(k),Fy(k). */
+    /*Output: zMr,zMi m*(n/2+1) arrays, Fx,Fy m*(n/2+1) arrays. The kth term of zMr+zMi corresponds to frequency Fx(k),Fy(k). */
     /*TBD: PSF!!*/  
     const int dim[2]={m,n};
     const int dimcount=2;
@@ -36,6 +36,7 @@ void calc_image_fft(double *M,int m,int n,double dx,double dy,double *zMr,double
     dc=fft2_out[0].r; /*dc term*/
     /*Origo is assumed to at the center of image, so we have to compensate for phase shift
      * caused by fft*/
+    
     for(int i=0;i<m;i++)
     {
         for(int j=0;j<n/2+1;j++)
@@ -45,6 +46,7 @@ void calc_image_fft(double *M,int m,int n,double dx,double dy,double *zMr,double
             zMr[i*(n/2+1)+j]=pow(-1.0,i+j)*fft2_out[i*(n/2+1)+j].r/dc;
             zMi[i*(n/2+1)+j]=pow(-1.0,i+j)*fft2_out[i*(n/2+1)+j].i/dc;
             Fx[i*(n/2+1)+j]=j*1/Lx;
+           
             Fy[i*(n/2+1)+j]=i*1/Ly;
             if(i>m/2-1)
                 Fy[i*(n/2+1)+j]=(i-m)*1/Ly;
@@ -52,6 +54,8 @@ void calc_image_fft(double *M,int m,int n,double dx,double dy,double *zMr,double
     }
     free(fft2_out);
     free(stf);
+   
+   
 }
  /*           
    int main()

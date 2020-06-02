@@ -1,36 +1,23 @@
 #include"utils.h"
 #include"matrix_ops.h"
-#include"globals.h"
+#define LANGLE 0.7
+#define MEXP 10
+//void dihedral_angle2(int* tlist,double* vlist,int nfac,int nvert,double *res,int *EV,double *dresdx,double *dresdy,double *dresdz);
 void dihedral_angle_reg(int *tlist,double *vlist,int nfac,int nvert,double *D,int dm,int dn,double *result,double *drsdv)
 {
     /*OUTPUT:
      * result a double
      * dresdx 1x3*nvert+3 array
      */
-    double mul=2;
-    double cos_max_angle=0;
-    double amul=1;
-    double p=1;
-    if(INI_DIA_PARAMS)
-    {
-        mul=INI_DIA_PARAMS[2]; //Exponent, usually 2
-        cos_max_angle=cos(INI_DIA_PARAMS[1]*2*PI/360.0); //Maximum angle, after which additional multiplier amul
-        amul=INI_DIA_PARAMS[0];
-    }
     *result=0;
    int nedge=nfac+nvert-2;
    double *res,*drdx,*drdy,*drdz;
+   int mult=1;
    int *EV;
    res=calloc(nedge,sizeof(double));
    drdx=calloc(nedge*nvert,sizeof(double));
    drdy=calloc(nedge*nvert,sizeof(double));
    drdz=calloc(nedge*nvert,sizeof(double));
-//   
-   if(res==NULL || drdx==NULL || drdy==NULL || drdz==NULL)
-   {
-       fprintf(stderr,"Calloc returned null\n");
-       exit(1);
-   }
    double *drsdx,*drsdy,*drsdz;
    
    double *dresdx,*dresdy,*dresdz;
@@ -49,17 +36,17 @@ void dihedral_angle_reg(int *tlist,double *vlist,int nfac,int nvert,double *D,in
     if(D==NULL)
    for(int j=0;j<nedge;j++)
    {
-       if(res[j]<cos_max_angle)
-           p=amul;
+       if(res[j]<LANGLE)
+           mult=MEXP;
        else
-           p=1;
-       (*result)+=p*pow(1-res[j],mul);
+           mult=1;
+       (*result)+=mult*pow(1-res[j],1);
        for(int k=0;k<nvert;k++)
        {
            
-           drsdx[k]+=-p*mul*pow(1-res[j],mul-1)*drdx[j*nvert+k];
-           drsdy[k]+=-p*mul*pow(1-res[j],mul-1)*drdy[j*nvert+k];
-           drsdz[k]+=-p*mul*pow(1-res[j],mul-1)*drdz[j*nvert+k];
+           drsdx[k]+=-mult*drdx[j*nvert+k];
+           drsdy[k]+=-mult*drdy[j*nvert+k];
+           drsdz[k]+=-mult*drdz[j*nvert+k];
        }
    }
    else
@@ -69,17 +56,17 @@ void dihedral_angle_reg(int *tlist,double *vlist,int nfac,int nvert,double *D,in
        dresdz=calloc(nvert,sizeof(double));
     for(int j=0;j<nedge;j++)
    {
-       if(res[j]<cos_max_angle)
-           p=amul;
+       if(res[j]<LANGLE)
+           mult=MEXP;
        else
-           p=1;
-       (*result)+=p*pow(1-res[j],mul);
+           mult=1;
+       (*result)+=mult*pow(1-res[j],1);
        for(int k=0;k<nvert;k++)
        {
           
-           dresdx[k]+=-p*mul*pow(1-res[j],mul-1)*drdx[j*nvert+k];
-           dresdy[k]+=-p*mul*pow(1-res[j],mul-1)*drdy[j*nvert+k];
-           dresdz[k]+=-p*mul*pow(1-res[j],mul-1)*drdz[j*nvert+k];
+           dresdx[k]+=-mult*drdx[j*nvert+k];
+           dresdy[k]+=-mult*drdy[j*nvert+k];
+           dresdz[k]+=-mult*drdz[j*nvert+k];
        }
    }
    matrix_prod(dresdx,1,nvert,D,dn,drsdx);

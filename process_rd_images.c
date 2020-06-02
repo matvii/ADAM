@@ -2,7 +2,7 @@
 #include<stdio.h>
 #include"structs.h"
 
-RDstruct * process_rd_images(char **filenames,int nRD,int *x0,int *y0,int *nx,int *ny, double *dx,double *dy,double *dates,double *RadarFreq,double min_tim,double *E,double *TIME,int nephm,int *LowFreq)
+RDstruct * process_rd_images(char **filenames,int nRD,int *x0,int *y0,int *nx,int *ny, int *cx,int *cy,int *cxdim,int *cydim,double *dx,double *dy,double *dates,double *RadarFreq,double min_tim,double *E,double *TIME,int nephm,int *LowFreq)
 {
     /*INPUT:
      * filenames: filenames of AO images 
@@ -69,7 +69,7 @@ RDstruct * process_rd_images(char **filenames,int nRD,int *x0,int *y0,int *nx,in
 //             AO->psfr[j]=NULL;
 //             AO->psfi[j]=NULL;
 //         }
-        readfits_rd(filenames[j],&buffer,x0[j],y0[j],nx[j],ny[j],&date,&xsize,&ysize,&cdelt1,&cdelt2); 
+        readfits_rd(filenames[j],&buffer,cx[j],cy[j],cxdim[j],cydim[j],&date,&xsize,&ysize,&cdelt1,&cdelt2); 
        // printf("%7.4f\n",date);
         if(dx[j]==0)
         {
@@ -90,7 +90,9 @@ RDstruct * process_rd_images(char **filenames,int nRD,int *x0,int *y0,int *nx,in
                 fprintf(stderr,"pixel size of radar image %d is undefined\n",j);
                 exit(1);
             }
-        } 
+        }
+      
+       
 //         double image_max=0;
 //             for(int k=0;k<xsize*ysize;k++)
 //             {
@@ -103,29 +105,31 @@ RDstruct * process_rd_images(char **filenames,int nRD,int *x0,int *y0,int *nx,in
 //                 buffer[k]=buffer[k]/image_max;
           RD->scalex[j]=dx[j];
         RD->scaley[j]=dy[j];
-        datai=calloc(xsize*(ysize/2+1),sizeof(double));
-        datar=calloc(xsize*(ysize/2+1),sizeof(double));
-        freqx=calloc(xsize*(ysize/2+1),sizeof(double));
-            freqy=calloc(xsize*(ysize/2+1),sizeof(double));
-        RD->datar[j]=calloc(xsize*(ysize/2+1),sizeof(double));
-        RD->datai[j]=calloc(xsize*(ysize/2+1),sizeof(double));
-        RD->freqx[j]=calloc(xsize*(ysize/2+1),sizeof(double));
-        RD->freqy[j]=calloc(xsize*(ysize/2+1),sizeof(double));
+        datai=calloc(ysize*(xsize/2+1),sizeof(double));
+        datar=calloc(ysize*(xsize/2+1),sizeof(double));
+        freqx=calloc(ysize*(xsize/2+1),sizeof(double));
+            freqy=calloc(ysize*(xsize/2+1),sizeof(double));
+        RD->datar[j]=calloc(ysize*(xsize/2+1),sizeof(double));
+        RD->datai[j]=calloc(ysize*(xsize/2+1),sizeof(double));
+        RD->freqx[j]=calloc(ysize*(xsize/2+1),sizeof(double));
+        RD->freqy[j]=calloc(ysize*(xsize/2+1),sizeof(double));
        //Note that we reverse order of dy and dx here
         // NB: CHECK THIS
-        for(int j=0;j<xsize*ysize;j++)
-            buffer[j]=buffer[j]*xsize*ysize;
+//         for(int j=0;j<xsize*ysize;j++)
+//             buffer[j]=buffer[j]*xsize*ysize;
         
-        calc_image_fft(buffer,xsize,ysize,dx[j],dy[j],datar,datai,freqx,freqy);
+        calc_image_fft(buffer,ysize,xsize,dx[j],dy[j],datar,datai,freqx,freqy); //image is ysize x xsize matrix, dx corresponds to horizontal resolution
 //         printf("xsize:%d ysize %d dx: %f dy: %f\n",xsize,ysize,dx[j],dy[j]);
        // printf("freqx: %f %f freqy: %f %f\n",RD->freqx[0][0],RD->freqx[0][1],RD->freqy[0][0],RD->freqy[0][1]);
         free(buffer);
+        
         if(LowFreq!=NULL && LowFreq[j]==1)
         {
+            
             FreqCount=0;
             MaxFreqx=1.0/(4*dx[j]); //Freqx corresponds to frequency here
             MaxFreqy=1.0/(4*dy[j]);
-            for(int k=0;k<xsize*(ysize/2+1);k++)
+            for(int k=1;k<ysize*(xsize/2+1);k++)
             {
                 if(fabs(freqx[k])<=MaxFreqx && fabs(freqy[k])<=MaxFreqy)
                 {
@@ -142,13 +146,17 @@ RDstruct * process_rd_images(char **filenames,int nRD,int *x0,int *y0,int *nx,in
         }
         else
         {
-        RD->nobs[j]=xsize*(ysize/2+1)-1;
-        ntotal+=xsize*(ysize/2+1)-1;
-        memcpy(RD->datar[j],datar+1,(xsize*(ysize/2+1)-1)*sizeof(double));
-        memcpy(RD->datai[j],datai+1,(xsize*(ysize/2+1)-1)*sizeof(double));
-        memcpy(RD->freqx[j],freqx+1,(xsize*(ysize/2+1)-1)*sizeof(double));
-        memcpy(RD->freqy[j],freqy+1,(xsize*(ysize/2+1)-1)*sizeof(double));
+        RD->nobs[j]=ysize*(xsize/2+1)-1;
+        ntotal+=ysize*(xsize/2+1)-1;
+        memcpy(RD->datar[j],datar+1,(ysize*(xsize/2+1)-1)*sizeof(double));
+        memcpy(RD->datai[j],datai+1,(ysize*(xsize/2+1)-1)*sizeof(double));
+        memcpy(RD->freqx[j],freqx+1,(ysize*(xsize/2+1)-1)*sizeof(double));
+        memcpy(RD->freqy[j],freqy+1,(ysize*(xsize/2+1)-1)*sizeof(double));
+        
+       
+      
         }
+        
         if(!isnan(dates[j]))
         {
             RD->TIME[j]=dates[j];
@@ -166,9 +174,9 @@ RDstruct * process_rd_images(char **filenames,int nRD,int *x0,int *y0,int *nx,in
         norm1=NORM((E+3*index));
         
         //Correct for LT
-       // RD->TIME[j]-=(norm1/cao+min_tim);
+        RD->TIME[j]-=(norm1/cao+min_tim);
         //NO LT CORRECTION:
-         RD->TIME[j]-=(min_tim);
+       //  RD->TIME[j]-=(min_tim);
         RD->distance[j]=norm1;
         for(int k=0;k<3;k++)
         {

@@ -13,7 +13,7 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
   double *dSx,*dSy,*dSz;
   int albedo=0;
   normal=malloc(numfac*3*sizeof(double));
-  
+  double dAlb3[3];
   E=malloc(3*nE*sizeof(double));
   E0=malloc(3*nE*sizeof(double));
   
@@ -25,7 +25,7 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
  if(A!=NULL)
  {
      albedo=1;
-     dSdalb=calloc(nE*numfac,sizeof(double));
+     dSdalb=calloc(nE*numvert,sizeof(double));
      la=Alimit[0];
      ha=Alimit[1];
  }
@@ -324,11 +324,12 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
         }
         else
         {
-            alb=A[j];
+            //alb=Albedo_Term(tlist,vlist,numfac,numvert,Alimit,Alb,j,dAlb3);
             
-            alb_term=(la+ha)/2+(ha-la)/2*tanh(alb);
-            dSdalb[e*numfac+j]=phase*(ha-la)/2*(1-pow(tanh(alb),2))*Scatt*area[j];
-           
+            alb_term=Albedo_Term(tlist,vlist,numfac,numvert,Alimit,A,j,dAlb3);
+            dSdalb[e*numvert+vert1]=phase*dAlb3[0]*Scatt*area[j];
+           dSdalb[e*numvert+vert2]=phase*dAlb3[1]*Scatt*area[j];
+           dSdalb[e*numvert+vert3]=phase*dAlb3[2]*Scatt*area[j];
             
             
         }
@@ -456,14 +457,14 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
       }
       if(albedo==1)
       {
-        for(int i=0;i<numfac;i++)
+        for(int i=0;i<numvert;i++)
         {
             suma=0;
             for(int k=0;k<nE;k++)
-                suma=suma+dSdalb[k*numfac+i];
+                suma=suma+dSdalb[k*numvert+i];
             
             for(int h=0;h<nE;h++)
-                dA[h*numfac+i]=nE*(sumbright*dSdalb[h*numfac+i]-tb[h]*suma)/sumbright2;
+                dA[h*numvert+i]=nE*(sumbright*dSdalb[h*numvert+i]-tb[h]*suma)/sumbright2;
         }
       }
       
@@ -478,7 +479,7 @@ void calculate_lcurve(int *tlist,double *vlist,int numfac,int numvert,double *an
         memcpy(dbrightl,dBl,sizeof(double)*nE);
         memcpy(dbrighto,dBo,sizeof(double)*nE);
         if(albedo==1)
-            memcpy(dA,dSdalb,sizeof(double)*numfac*nE);
+            memcpy(dA,dSdalb,sizeof(double)*numvert*nE);
     }
     
     

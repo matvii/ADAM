@@ -121,7 +121,7 @@ axislim=axis();
 TR=triangulation(tlist,vlist(:,1),vlist(:,2),vlist(:,3));
 VN=vertexNormal(TR);
 % Assign the GUI a name to appear in the window title.
-set(f,'Name','Simple Mesh Editor')
+set(f,'Name',iniFileName,'NumberTitle','off')
 % Move the GUI to the center of the screen.
 movegui(f,'center')
 % Make the GUI visible.
@@ -166,6 +166,7 @@ set(f,'WindowButtonDownFcn',@VertexSelect_orig);
     function loadbutton_Callback(source,eventdata)
         current_view=1;
         LoadIni;
+        set(f,'Name',iniFileName,'NumberTitle','off')
         set(hpopup,'String',popmenu,'Visible','off');
         popmenu=cell(1,nAO);
         for j=1:nAO
@@ -181,7 +182,12 @@ set(f,'WindowButtonDownFcn',@VertexSelect_orig);
     function loadmeshbutton_Callback(source,eventdata)
         [FileName,PathName] = uigetfile('*.*');
         filename=strcat(PathName,FileName);
+        suffix=strsplit(FileName,'.');
+        if size(suffix,2)>1 && strcmp(suffix{2},'obj')
+            [tlist,vlist]=read_obj_file(filename);
+        else
         [tlist,vlist]=read_shape(filename,1);
+        end
         [vlist2,rE,rE0,invis,shade]=process_visible(tlist,vlist,FT,angles,Albedo,1);
         hold off
         fig3d=trisurf(tlist,vlist(:,1),vlist(:,2),vlist(:,3),shade);axis equal;
@@ -275,7 +281,7 @@ set(f,'WindowButtonDownFcn',@VertexSelect_orig);
         set(DataFig,'Name',Filename{current_view},'NumberTitle','off');
         ims=size(im{current_view},1);
         [vlist2,rE,rE0,invis,shade]=process_visible(tlist,vlist,FT,angles,Albedo,current_view);
-        I2=project_mesh_2d(tlist,vlist,angles,FT.TIME{current_view},FT.E{current_view},FT.E0{current_view},FT.distance{current_view},FT.up{current_view},FT.scale{current_view}/2,2*ims,[],Albedo,shade);
+        I2=project_mesh_2d(tlist,vlist,angles,FT.TIME{current_view},FT.E{current_view},FT.E0{current_view},FT.distance{current_view},FT.up{current_view},FT.scale{current_view}/2,2*ims,[],shade);
         figure(ProjFig); imagesc(I2);axis xy;axis equal;
     end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%rotbutton_callback%%%%%%%%%%%%%%%%%%%
