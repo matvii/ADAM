@@ -34,7 +34,8 @@ void readfits_rd(char* filename,double **buffer,int cx,int cy,int cxdim,int cydi
         crpix1=0;
     if(!hgetr8(head,"CRPIX2",&crpix2))
         crpix2=0;
-    
+    if(crpix1>0 && crpix2>0)
+        printf("Image %s, Doppler res %f, Delay res %f, Doppler center %f, Delay center %f\n",filename,*cdelt1,*cdelt2,crpix1,crpix2);
     
     if(cx>0 && cy>0 && crpix1>0)
         printf("RDcenter set, overriding CRPIX from the %s\n",filename); 
@@ -63,43 +64,52 @@ void readfits_rd(char* filename,double **buffer,int cx,int cy,int cxdim,int cydi
     hgeti4(head,"NAXIS1",&naxis1);
     hgeti4(head,"NAXIS2",&naxis2);
     hgeti4(head,"BITPIX",&bitpix);
-//  printf("file: %s cx %d cy %d nx %d ny %d x0: %d y0: %d cxdim: %d  cydim: %d naxis1 %d naxis2 %d\n",filename,cx,cy,nx,ny,x0,y0,cxdim,cydim,naxis1,naxis2);
+// printf("file: %s cx %d cy %d nx %d ny %d x0: %d y0: %d cxdim: %d  cydim: %d naxis1 %d naxis2 %d\n",filename,cx,cy,nx,ny,x0,y0,cxdim,cydim,naxis1,naxis2);
+    if(x0+nx>naxis1)
+    {
+        printf("in image %s, set image size in ini is larger than physical dimension, using full image in x direction\n",filename);
+        x0=1;
+        nx=naxis1-naxis1%2;
+    }
+    if(y0+ny>naxis2)
+    {
+        printf("in image %s, set image size in ini is larger than physical dimension, using full image in y direction\n",filename);
+        y0=1;
+        ny=naxis2-naxis2%2;
+    }
+    
    if ((x0==0 || y0==0 || nx==0 || ny==0 || x0+nx>naxis1 || y0+ny>naxis2) && (naxis1%2!=0 || naxis2%2!=0))
    {
        x0=1;
        y0=1;
        nx=naxis1-naxis1%2;
        ny=naxis2-naxis2%2;
+  //  printf("x0 %d y0 %d nx: %d ny: %d %d %d\n",x0,y0,nx,ny,x0+nx,y0+ny);
        printf("Using the whole image %s, but size is odd. Fixing\n",filename);
    }
    
     
     if(x0==0 || y0==0 || nx==0 || ny==0 || x0+nx>naxis1 || y0+ny>naxis2)
     {
-    *xsize=naxis1;
-    *ysize=naxis2;
-    imsize=naxis1*naxis2;
-    image=fitsrimage(filename, nbhead, head);
-    if(bitpix!=-64)
-        fimage=(float *)image;
-    else
-        dimage=(double *)image;
-    
+    //*xsize=naxis1-naxis1%2;
+    //*ysize=naxis2-naxis2%2;
+    nx=naxis1-naxis1%2;
+    ny=naxis2-naxis2%2;
+    x0=1;
+    y0=1;
     }
-    else
-    {
     *xsize=nx;
     *ysize=ny;
     imsize=nx*ny;
     image=fitsrsect(filename,head,nbhead,x0,y0,nx,ny,nlog);
-    //printf("x0:%d y0: %d\n",x0,y0);
-    //printf("Input readfits: %d %d %d %d\n",x0,y0,nx,ny);
+//    printf("x0:%d y0: %d\n",x0,y0);
+  //  printf("Input readfits: %d %d %d %d\n",x0,y0,nx,ny);
     if(bitpix!=-64)
         fimage=(float *)image;
     else
         dimage=(double *)image;
         
-    }
+    
     buf=calloc(imsize,sizeof(double));
       if(bitpix!=-64)
       for(int j=0;j<imsize;j++)
@@ -109,14 +119,15 @@ void readfits_rd(char* filename,double **buffer,int cx,int cy,int cxdim,int cydi
         for(int j=0;j<imsize;j++)
             buf[j]=fmax(dimage[j],INI_SET_RD_ZERO);
       //NOTE: HERE WE flip and transpose the image
-     // flip_dim(buf,*ysize,*xsize,2);
+       if(INI_RADAR_FLIP==1) 
+     flip_dim(buf,*ysize,*xsize,2);
     //  matrix_transpose(buf,*ysize,*xsize);
      
     free(head);
     free(image);
     *buffer=buf;
-    //printf("xsize: %d ysize: %d\n",*xsize,*ysize);
-    //write_matrix_file("/tmp/test.txt",*buffer,*ysize,*xsize);
+//    printf("xsize: %d ysize: %d\n",*xsize,*ysize);
+  // write_matrix_file("/tmp/test.txt",*buffer,*ysize,*xsize);
   //exit(1);
 }
 /*
