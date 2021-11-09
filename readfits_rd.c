@@ -78,26 +78,18 @@ void readfits_rd(char* filename,double **buffer,int cx,int cy,int cxdim,int cydi
         ny=naxis2-naxis2%2;
     }
     
-   if ((x0==0 || y0==0 || nx==0 || ny==0 || x0+nx>naxis1 || y0+ny>naxis2) && (naxis1%2!=0 || naxis2%2!=0))
+   if ((x0==0 || y0==0 || nx==0 || ny==0 || x0+nx>naxis1 || y0+ny>naxis2))
    {
        x0=1;
        y0=1;
        nx=naxis1-naxis1%2;
        ny=naxis2-naxis2%2;
   //  printf("x0 %d y0 %d nx: %d ny: %d %d %d\n",x0,y0,nx,ny,x0+nx,y0+ny);
-       printf("Using the whole image %s, but size is odd. Fixing\n",filename);
+   //    printf("Using the whole image %s, but size is odd. Fixing\n",filename);
    }
    
     
-    if(x0==0 || y0==0 || nx==0 || ny==0 || x0+nx>naxis1 || y0+ny>naxis2)
-    {
-    //*xsize=naxis1-naxis1%2;
-    //*ysize=naxis2-naxis2%2;
-    nx=naxis1-naxis1%2;
-    ny=naxis2-naxis2%2;
-    x0=1;
-    y0=1;
-    }
+   
     *xsize=nx;
     *ysize=ny;
     imsize=nx*ny;

@@ -4,9 +4,10 @@
 #include"matrix_ops.h"
 #include"structs.h"
 #include"globals.h"
-double *INI_AO_TOTAL_BRIGHT;
+
 void fit_vertex_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD,CNTRstruct *CR)
 {
+    double *INI_AO_TOTAL_BRIGHT;
     //First initialize the initial shape
     int *tlist,*tlistn,nfac,nvert,nfacn,nvertn;
     double *vlist,*vlist2,*vlistn,*D;

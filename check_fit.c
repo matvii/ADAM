@@ -4,7 +4,6 @@
 #include"matrix_ops.h"
 #include"structs.h"
 #include"globals.h"
-double *INI_AO_TOTAL_BRIGHT;
 void Calculate_AOs_fit(int *tlist,double *vlist,int nfac,int nvert,double *angles,AOstruct *AOs,double *offset,double *D,int dm,int dn,double *Weight,double *scale,double *FT,double *FTdv,double* FTdS,double *Albedo,double *Alimit,double *dA,int deriv);
 void check_model_fit(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD,CNTRstruct *CR)
 {

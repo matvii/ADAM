@@ -2,6 +2,7 @@
 #define GLOBALS
 extern double* INI_DIA_PARAMS; //additional multiplier,min angle (in degrees),exponent
 extern int* INI_AO_FLIP;
+extern int INI_RADAR_FLIP;
 extern double INI_MAX_RD_ANGLE;
 extern int INI_RESTORE_ALBEDO;
 extern double INI_SET_RD_ZERO;
@@ -42,7 +43,7 @@ extern char *INI_RESTORE_STATE;
 extern char *INI_INPUTOBJSHAPE;
 extern char *INI_INPUTSHAPE;
 extern char *INI_ALBEDO_FILE;
-double *INI_OC_OFFSET;
+extern double *INI_OC_OFFSET;
 extern char *OUT_LC_FILE;
 extern int USE_ELLIPSOID;
 extern double ELLIPSOID_SEMI_A;

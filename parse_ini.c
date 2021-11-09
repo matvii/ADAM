@@ -9,6 +9,7 @@
 //Build command gcc test_adam_ini.c -o test_adam_ini -Iiniparser/src -Liniparser -liniparser
 //Here are global variables
 double INI_MAX_RD_ANGLE=90;
+int INI_RADAR_FLIP=0;
 int     *INI_AO_FLIP;
 int     INI_SUBDIV_TYPE_BUTTERFLY=0;
 int     INI_IGNORE_AO_ALBEDO=0;
@@ -269,6 +270,8 @@ int parse_ini(char *filename)
     INI_OW=atof(s);
     s=iniparser_getstring(ini,"Optimization:RDWeight","1");
     INI_RW=atof(s);
+    s=iniparser_getstring(ini,"Optimization:RDFlip","0");
+    INI_RADAR_FLIP=atoi(s);
     s=iniparser_getstring(ini,"Optimization:Lambda","1");
     INI_LAMBDA=atof(s);
     s=iniparser_getstring(ini,"Optimization:LambdaInc","10");

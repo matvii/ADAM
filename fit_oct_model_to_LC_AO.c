@@ -4,9 +4,16 @@
 #include"matrix_ops.h"
 #include"structs.h"
 #include"globals.h"
-double *INI_AO_TOTAL_BRIGHT;
 void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD,CNTRstruct *CR)
 {
+   
+    char *TEMP_OUT_SHAPE_FILE;
+    int TEMP_OUT_SHAPE_FILE_index=strlen(OUT_SHAPE_FILE);
+    TEMP_OUT_SHAPE_FILE=calloc(strlen(OUT_SHAPE_FILE)+6,sizeof(char));
+    strcpy(TEMP_OUT_SHAPE_FILE,OUT_SHAPE_FILE);
+    TEMP_OUT_SHAPE_FILE[TEMP_OUT_SHAPE_FILE_index++]='.';
+    TEMP_OUT_SHAPE_FILE[TEMP_OUT_SHAPE_FILE_index+4]='\0';
+   
     //First initialize the initial shape
     int *tlist;
     double *vlist,*vlist2,*D1,*D2;
@@ -983,7 +990,8 @@ void fit_oct_model_to_LC_AO(LCstruct *LC,AOstruct *AO,OCstruct *OC,RDstruct *RD,
             lambda=lambda/INI_LAMBDADEC;
             zero_array(J,Slength*nJcols);
             zero_array(S,Slength);
-            write_shape_file(OUT_SHAPE_FILE,tlist,vlist2,nfac,nvert);
+            sprintf(TEMP_OUT_SHAPE_FILE+TEMP_OUT_SHAPE_FILE_index,"%03d",k);
+            write_shape_file(TEMP_OUT_SHAPE_FILE,tlist,vlist2,nfac,nvert);
         }
         else
         {
