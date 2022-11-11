@@ -51,7 +51,7 @@ void alb_smooth(double *ealb,int nAlbedo,double *albreg,double *dalbreg)
         alb=ealb[i];
         sgn=(alb > 0) ? 1 : ((alb < 0) ? -1 : 0);
         dalbreg[i*nAlbedo+i]=sgn;
-        albreg[i]=abs(alb);
+        albreg[i]=fabs(alb);
     }
 }
 
@@ -167,7 +167,7 @@ int calc_rot_frame(char *fitsfile,double *E,double *up)
         fprintf(stderr,"Warning: right-handed coordinate system in fits");
     angle1=atan2(sgn*CD12,CD22);
     angle2=atan2(-CD21,sgn*CD11);
-   // printf("angle: %f %f\n",angle1*180/PI,angle2*180/PI);
+  // printf("sign: %d %f angle: %f %f\n",sgn,det,angle1*180/PI,angle2*180/PI);
     if(fabs(angle1-angle2)>0.01)
     {
         fprintf(stderr,"Rotation angle information in %s is inconsistent, set rotation manually\n",fitsfile);

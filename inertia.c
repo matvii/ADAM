@@ -403,7 +403,7 @@ void inertia(int *tlist,double* vlist,int nfac,int nvert,double *D1,int m,int n,
                
                dvzdL8=((L1*L2 - L0*L5)*(-(L0*pow(L2,2)) + pow(L0,2)*L8 + L1*(-(L2*L5) + L1*L8)))/pow(pow(L1*L2 - L0*L5,2) + pow(pow(L2,2) - L0*L8,2) + pow(L2*L5 - L1*L8,2),1.5);
            }
-           else if(vindex=3)
+           else if(vindex==3)
            {
                dvzdL0=0;
                
